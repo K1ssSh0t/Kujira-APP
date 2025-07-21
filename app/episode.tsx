@@ -34,9 +34,6 @@ export default function EpisodeScreen() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  const [playerModalVisible, setPlayerModalVisible] = React.useState(false);
-  const [selectedServer, setSelectedServer] = React.useState<Server | null>(null);
-
   const [videoPlayerVisible, setVideoPlayerVisible] = React.useState(false);
   const [videoSource, setVideoSource] = React.useState<{
     uri: string;
@@ -73,60 +70,32 @@ export default function EpisodeScreen() {
   }, [videoSource, player]);
 
   const handleServerPress = (server: Server) => {
-    setSelectedServer(server);
-    setPlayerModalVisible(true);
-  };
+    const sourceUrl = server.source;
 
-  const openInPlayer = (playerType: 'mpv' | 'vlc' | 'browser' | 'expo') => {
-    if (!selectedServer) return;
-
-    const sourceUrl = selectedServer.source;
-
-    if (playerType === 'expo') {
+    if (Platform.OS === 'android') {
+      let extras: Record<string, any> = {};
+      if (server.name === 'YourUpload') {
+        extras['android.intent.extra.HEADERS'] = `Referer:${server.url}`;
+      }
+      console.log('Opening video with IntentLauncher', sourceUrl, extras);
+      IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+        data: sourceUrl,
+        extra: extras,
+        type: 'video/*',
+      }).catch((err) => {
+        console.error('Failed to open with IntentLauncher, trying browser.', err);
+        Linking.openURL(server.url).catch((e) => console.error("Couldn't load page", e));
+      });
+    } else {
       let headers: Record<string, string> | undefined;
-      if (selectedServer.name === 'YourUpload') {
+      if (server.name === 'YourUpload') {
         headers = {
-          Referer: selectedServer.url,
+          Referer: server.url,
         };
       }
       setVideoSource({ uri: sourceUrl, headers });
       setVideoPlayerVisible(true);
-      setPlayerModalVisible(false);
-      return;
     }
-
-    if (playerType === 'browser') {
-      Linking.openURL(selectedServer.url).catch((e) => console.error("Couldn't load page", e));
-      setPlayerModalVisible(false);
-      return;
-    }
-
-    if (Platform.OS === 'android') {
-      const packages = {
-        mpv: 'is.xyz.mpv',
-        vlc: 'org.videolan.vlc',
-      };
-      const playerPackage = packages[playerType];
-
-      let extras: Record<string, any> = {};
-      if (selectedServer.name === 'YourUpload') {
-        extras['android.intent.extra.HEADERS'] = `Referer\t${selectedServer.url}\n`;
-      }
-
-      IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-
-        data: sourceUrl,
-        packageName: playerPackage,
-        extra: extras,
-      }).catch((err) => {
-        console.error(`Failed to open ${playerType} with IntentLauncher, trying browser.`, err);
-        Linking.openURL(selectedServer.url).catch((e) => console.error("Couldn't load page", e));
-      });
-    } else {
-      Linking.openURL(sourceUrl).catch((err) => console.error("Couldn't load page", err));
-    }
-
-    setPlayerModalVisible(false);
   };
 
   if (loading) {
@@ -166,39 +135,6 @@ export default function EpisodeScreen() {
           );
         })}
       </View>
-
-      <Modal
-        animationType='fade'
-        transparent={true}
-        visible={playerModalVisible}
-        onRequestClose={() => setPlayerModalVisible(false)}
-      >
-        <View className='flex-1 justify-center items-center bg-black/80 p-4'>
-          <View className='w-full max-w-sm bg-card rounded-2xl p-6'>
-            <TouchableOpacity
-              className='absolute top-4 right-4 z-10'
-              onPress={() => setPlayerModalVisible(false)}
-            >
-              <X size={24} className='text-muted-foreground' />
-            </TouchableOpacity>
-            <Text className='text-xl font-bold text-foreground mb-4'>Open with...</Text>
-            <View className='gap-y-3'>
-              <Button onPress={() => openInPlayer('expo')}>
-                <Text>Play in App</Text>
-              </Button>
-              <Button onPress={() => openInPlayer('mpv')}>
-                <Text>MPV</Text>
-              </Button>
-              <Button onPress={() => openInPlayer('vlc')}>
-                <Text>VLC</Text>
-              </Button>
-              <Button variant='secondary' onPress={() => openInPlayer('browser')}>
-                <Text>Browser</Text>
-              </Button>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         visible={videoPlayerVisible}
