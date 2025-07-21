@@ -2,7 +2,7 @@ name: Build Android App Locally and Release
 
 on:
   push:
-    branches: ["main"]
+    branches: ["master"]
 jobs:
   build-android-local:
     runs-on: ubuntu-latest
