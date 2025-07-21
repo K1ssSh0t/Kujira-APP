@@ -39,10 +39,11 @@ export default function RootLayout() {
     <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
       <StatusBar style={isDarkColorScheme ? 'light' : 'dark'} />
       <Stack>
+        <Stack.Screen name='index' options={{ headerShown: false }} />
         <Stack.Screen
-          name='index'
+          name='(tabs)'
           options={{
-            title: 'Starter Base',
+            title: 'Kujira APP',
             headerRight: () => <ThemeToggle />,
           }}
         />
