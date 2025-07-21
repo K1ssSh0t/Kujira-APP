@@ -72,11 +72,18 @@ export default function EpisodeScreen() {
   const handleServerPress = (server: Server) => {
     const sourceUrl = server.source;
 
+    // 1. Define los headers como un array de strings en formato "Clave: Valor"
+    const headersArray = Object.entries({
+      Referer: server.url,
+      // CustomHeader: "ValorPersonalizado"
+    }).map(([key, value]) => `${key}: ${value}`);
+
+
     if (Platform.OS === 'android') {
-      let extras: Record<string, any> = {};
-      if (server.name === 'YourUpload') {
-        extras['android.intent.extra.HEADERS'] = `Referer:${server.url}`;
-      }
+      // 2. Configura el extra con la clave específica de Android
+      const extras = {
+        "android.intent.extra.HTTP_HEADERS": headersArray
+      };
       console.log('Opening video with IntentLauncher', sourceUrl, extras);
       IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
         data: sourceUrl,
