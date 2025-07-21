@@ -9,11 +9,11 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Card, CardTitle } from '~/components/ui/card';
 import { Text } from '~/components/ui/text';
 import { cn } from '~/lib/utils';
 import { Info, X } from 'lucide-react-native';
-import { Button } from '~/components/ui/button';
+import { useRouter } from 'expo-router';
 
 type Provider = 'tioanime' | 'animeflv';
 
@@ -40,6 +40,7 @@ interface AnimeDetails {
 }
 
 export default function Screen() {
+  const router = useRouter();
   const [provider, setProvider] = React.useState<Provider>('tioanime');
   const [data, setData] = React.useState<Anime[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -95,21 +96,32 @@ export default function Screen() {
     setModalLoading(false);
   };
 
+  const handleCardPress = (url: string) => {
+    router.push(`/episode?url=${encodeURIComponent(url)}`);
+  };
+
   const renderItem = ({ item }: { item: Anime }) => (
-    <Card className='w-full max-w-sm rounded-2xl overflow-hidden mx-auto border-0'>
-      <ImageBackground source={{ uri: item.img }} className='w-full h-64 justify-end'>
-        <View className='bg-black/60 p-4'>
-          <CardTitle className='text-white text-lg mb-1'>{item.title}</CardTitle>
-          <Text className='text-white/80'>{item.episode}</Text>
-        </View>
-        <TouchableOpacity
-          className='absolute top-2 right-2 bg-primary/80 p-2 rounded-full'
-          onPress={() => handleInfoPress(item)}
-        >
-          <Info size={20} className='text-primary-foreground' />
-        </TouchableOpacity>
-      </ImageBackground>
-    </Card>
+    <Pressable onPress={() => handleCardPress(item.url)} className='flex-1/2 p-1'>
+      <Card className='w-full rounded-2xl overflow-hidden border-0'>
+        <ImageBackground source={{ uri: item.img }} className='w-full h-64 justify-end'>
+          <View className='bg-black/60 p-3'>
+            <CardTitle className='text-white text-base font-bold mb-1'>
+              {item.title}
+            </CardTitle>
+            <Text className='text-white/80 text-sm'>{item.episode}</Text>
+          </View>
+          <TouchableOpacity
+            className='absolute top-2 right-2 bg-primary/80 p-2 rounded-full'
+            onPress={(e) => {
+              e.stopPropagation(); // Prevent card press from firing
+              handleInfoPress(item);
+            }}
+          >
+            <Info size={20} className='text-primary-foreground' />
+          </TouchableOpacity>
+        </ImageBackground>
+      </Card>
+    </Pressable>
   );
 
   return (
@@ -152,9 +164,9 @@ export default function Screen() {
           data={data}
           renderItem={renderItem}
           keyExtractor={(item, index) => `${provider}-${item.title}-${index}`}
-          contentContainerClassName='gap-4'
-          numColumns={1} // Display in two columns
-          key={provider} // Change key to force re-render on provider change
+          contentContainerClassName='gap-2'
+          numColumns={1}
+          key={provider}
         />
       )}
 
@@ -193,9 +205,17 @@ export default function Screen() {
                 </Text>
                 <Text className='text-xl font-bold mb-2'>Episodes</Text>
                 {animeDetails.episodes.map((ep) => (
-                  <View key={ep.url} className='bg-secondary p-3 rounded-lg mb-2'>
-                    <Text className='text-secondary-foreground'>{ep.name}</Text>
-                  </View>
+                  <Pressable
+                    key={ep.url}
+                    onPress={() => {
+                      setModalVisible(false);
+                      handleCardPress(ep.url);
+                    }}
+                  >
+                    <View className='bg-secondary p-3 rounded-lg mb-2'>
+                      <Text className='text-secondary-foreground'>{ep.name}</Text>
+                    </View>
+                  </Pressable>
                 ))}
               </ScrollView>
             )}
