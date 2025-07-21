@@ -13,6 +13,7 @@ import { Text } from '~/components/ui/text';
 import { Button } from '~/components/ui/button';
 import { X } from 'lucide-react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 interface Server {
   name: string;
@@ -107,17 +108,18 @@ export default function EpisodeScreen() {
       };
       const playerPackage = packages[playerType];
 
-      let intentUrl = `intent:${sourceUrl}#Intent;package=${playerPackage};`;
-
+      let extras: Record<string, any> = {};
       if (selectedServer.name === 'YourUpload') {
-        const headers = `Referer\t${selectedServer.url}\n`;
-        intentUrl += `S.android.intent.extra.HEADERS=${encodeURIComponent(headers)};`;
+        extras['android.intent.extra.HEADERS'] = `Referer\t${selectedServer.url}\n`;
       }
 
-      intentUrl += 'end';
+      IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
 
-      Linking.openURL(intentUrl).catch((err) => {
-        console.error(`Failed to open ${playerType}, trying browser.`, err);
+        data: sourceUrl,
+        packageName: playerPackage,
+        extra: extras,
+      }).catch((err) => {
+        console.error(`Failed to open ${playerType} with IntentLauncher, trying browser.`, err);
         Linking.openURL(selectedServer.url).catch((e) => console.error("Couldn't load page", e));
       });
     } else {
@@ -213,7 +215,7 @@ export default function EpisodeScreen() {
               player={player}
               style={{ flex: 1 }}
               contentFit="contain"
-
+            // controls={true}
             />
           )}
           <TouchableOpacity
