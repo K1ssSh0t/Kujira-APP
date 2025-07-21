@@ -1,95 +1,207 @@
 import * as React from 'react';
-import { View } from 'react-native';
-import Animated, { FadeInUp, FadeOutDown, LayoutAnimationConfig } from 'react-native-reanimated';
-import { Info } from '~/lib/icons/Info';
-import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
-import { Button } from '~/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '~/components/ui/card';
-import { Progress } from '~/components/ui/progress';
+  View,
+  FlatList,
+  ActivityIndicator,
+  ImageBackground,
+  Pressable,
+  Modal,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Text } from '~/components/ui/text';
-import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
+import { cn } from '~/lib/utils';
+import { Info, X } from 'lucide-react-native';
+import { Button } from '~/components/ui/button';
 
-const GITHUB_AVATAR_URI =
-  'https://i.pinimg.com/originals/ef/a2/8d/efa28d18a04e7fa40ed49eeb0ab660db.jpg';
+type Provider = 'tioanime' | 'animeflv';
+
+const API_URLS: Record<Provider, string> = {
+  tioanime: 'https://kujira.unusualoticramo.workers.dev/tioanime/latest',
+  animeflv: 'https://kujira.unusualoticramo.workers.dev/animeflv/latest',
+};
+
+const BASE_API_URL = 'https://kujira.unusualoticramo.workers.dev';
+
+interface Anime {
+  title: string;
+  url: string;
+  img: string;
+  episode: string;
+}
+
+interface AnimeDetails {
+  title: string;
+  img: string;
+  synopsis: string;
+  genres: string[];
+  episodes: { name: string; url: string }[];
+}
 
 export default function Screen() {
-  const [progress, setProgress] = React.useState(78);
+  const [provider, setProvider] = React.useState<Provider>('tioanime');
+  const [data, setData] = React.useState<Anime[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
-  function updateProgressValue() {
-    setProgress(Math.floor(Math.random() * 100));
-  }
+  const [modalVisible, setModalVisible] = React.useState(false);
+  const [selectedAnime, setSelectedAnime] = React.useState<Anime | null>(null);
+  const [animeDetails, setAnimeDetails] = React.useState<AnimeDetails | null>(null);
+  const [modalLoading, setModalLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(API_URLS[provider]);
+        let json = await response.json();
+
+        if (provider === 'animeflv') {
+          json = json.map((item: Anime) => ({
+            ...item,
+            img: `https://animeflv.net${item.img}`,
+          }));
+        }
+
+        setData(json);
+      } catch (e) {
+        setError('Failed to fetch data');
+        setData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [provider]);
+
+  const handleInfoPress = async (anime: Anime) => {
+    setSelectedAnime(anime);
+    setModalVisible(true);
+    setModalLoading(true);
+    setAnimeDetails(null);
+
+    try {
+      const animeUrlSlug = anime.url.replace(/\/episode\//, '/anime/').replace(/-\d+$/, '');
+      const detailsUrl = `${BASE_API_URL}${animeUrlSlug}`;
+      const response = await fetch(detailsUrl);
+      const json = await response.json();
+      setAnimeDetails(json);
+    } catch (error) {
+      console.error('Failed to fetch anime details:', error);
+    }
+    setModalLoading(false);
+  };
+
+  const renderItem = ({ item }: { item: Anime }) => (
+    <Card className='w-full max-w-sm rounded-2xl overflow-hidden mx-auto border-0'>
+      <ImageBackground source={{ uri: item.img }} className='w-full h-64 justify-end'>
+        <View className='bg-black/60 p-4'>
+          <CardTitle className='text-white text-lg mb-1'>{item.title}</CardTitle>
+          <Text className='text-white/80'>{item.episode}</Text>
+        </View>
+        <TouchableOpacity
+          className='absolute top-2 right-2 bg-primary/80 p-2 rounded-full'
+          onPress={() => handleInfoPress(item)}
+        >
+          <Info size={20} className='text-primary-foreground' />
+        </TouchableOpacity>
+      </ImageBackground>
+    </Card>
+  );
+
   return (
-    <View className='flex-1 justify-center items-center gap-5 p-6 bg-secondary/30'>
-      <Card className='w-full max-w-sm p-6 rounded-2xl'>
-        <CardHeader className='items-center'>
-          <Avatar alt="Rick Sanchez's Avatar" className='w-24 h-24'>
-            <AvatarImage source={{ uri: GITHUB_AVATAR_URI }} />
-            <AvatarFallback>
-              <Text>RS</Text>
-            </AvatarFallback>
-          </Avatar>
-          <View className='p-3' />
-          <CardTitle className='pb-2 text-center'>Rick Sanchez</CardTitle>
-          <View className='flex-row'>
-            <CardDescription className='text-base font-semibold'>Scientist</CardDescription>
-            <Tooltip delayDuration={150}>
-              <TooltipTrigger className='px-2 pb-0.5 active:opacity-50'>
-                <Info size={14} strokeWidth={2.5} className='w-4 h-4 text-foreground/70' />
-              </TooltipTrigger>
-              <TooltipContent className='py-2 px-4 shadow'>
-                <Text className='native:text-lg'>Freelance</Text>
-              </TooltipContent>
-            </Tooltip>
+    <View className='flex-1 p-4 bg-background'>
+      <View className='flex-row justify-center mb-4 p-1 bg-muted rounded-lg'>
+        <Pressable
+          onPress={() => setProvider('tioanime')}
+          className={cn(
+            'flex-1 p-2 items-center rounded-md',
+            provider === 'tioanime' && 'bg-primary'
+          )}
+        >
+          <Text className={cn(provider === 'tioanime' && 'text-primary-foreground')}>
+            TioAnime
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setProvider('animeflv')}
+          className={cn(
+            'flex-1 p-2 items-center rounded-md',
+            provider === 'animeflv' && 'bg-primary'
+          )}
+        >
+          <Text className={cn(provider === 'animeflv' && 'text-primary-foreground')}>
+            AnimeFLV
+          </Text>
+        </Pressable>
+      </View>
+
+      {loading ? (
+        <View className='flex-1 justify-center items-center'>
+          <ActivityIndicator size='large' />
+        </View>
+      ) : error ? (
+        <View className='flex-1 justify-center items-center'>
+          <Text>{error}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={data}
+          renderItem={renderItem}
+          keyExtractor={(item, index) => `${provider}-${item.title}-${index}`}
+          contentContainerClassName='gap-4'
+          numColumns={1} // Display in two columns
+          key={provider} // Change key to force re-render on provider change
+        />
+      )}
+
+      <Modal
+        animationType='slide'
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View className='flex-1 justify-center items-center bg-black/80'>
+          <View className='w-11/12 h-5/6 bg-card rounded-2xl p-4'>
+            <TouchableOpacity
+              className='absolute top-4 right-4 z-10'
+              onPress={() => setModalVisible(false)}
+            >
+              <X size={24} className='text-foreground' />
+            </TouchableOpacity>
+            {modalLoading || !animeDetails ? (
+              <ActivityIndicator size='large' className='flex-1' />
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <ImageBackground
+                  source={{ uri: animeDetails.img }}
+                  className='w-full h-56 rounded-xl overflow-hidden mb-4'
+                />
+                <Text className='text-2xl font-bold mb-2'>{animeDetails.title}</Text>
+                <View className='flex-row flex-wrap gap-2 mb-4'>
+                  {animeDetails.genres.map((genre) => (
+                    <View key={genre} className='bg-secondary px-3 py-1 rounded-full'>
+                      <Text className='text-secondary-foreground text-xs'>{genre}</Text>
+                    </View>
+                  ))}
+                </View>
+                <Text className='text-base text-muted-foreground mb-4'>
+                  {animeDetails.synopsis}
+                </Text>
+                <Text className='text-xl font-bold mb-2'>Episodes</Text>
+                {animeDetails.episodes.map((ep) => (
+                  <View key={ep.url} className='bg-secondary p-3 rounded-lg mb-2'>
+                    <Text className='text-secondary-foreground'>{ep.name}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
-        </CardHeader>
-        <CardContent>
-          <View className='flex-row justify-around gap-3'>
-            <View className='items-center'>
-              <Text className='text-sm text-muted-foreground'>Dimension</Text>
-              <Text className='text-xl font-semibold'>C-137</Text>
-            </View>
-            <View className='items-center'>
-              <Text className='text-sm text-muted-foreground'>Age</Text>
-              <Text className='text-xl font-semibold'>70</Text>
-            </View>
-            <View className='items-center'>
-              <Text className='text-sm text-muted-foreground'>Species</Text>
-              <Text className='text-xl font-semibold'>Human</Text>
-            </View>
-          </View>
-        </CardContent>
-        <CardFooter className='flex-col gap-3 pb-0'>
-          <View className='flex-row items-center overflow-hidden'>
-            <Text className='text-sm text-muted-foreground'>Productivity:</Text>
-            <LayoutAnimationConfig skipEntering>
-              <Animated.View
-                key={progress}
-                entering={FadeInUp}
-                exiting={FadeOutDown}
-                className='w-11 items-center'
-              >
-                <Text className='text-sm font-bold text-sky-600'>{progress}%</Text>
-              </Animated.View>
-            </LayoutAnimationConfig>
-          </View>
-          <Progress value={progress} className='h-2' indicatorClassName='bg-sky-600' />
-          <View />
-          <Button
-            variant='outline'
-            className='shadow shadow-foreground/5'
-            onPress={updateProgressValue}
-          >
-            <Text>Update</Text>
-          </Button>
-        </CardFooter>
-      </Card>
+        </View>
+      </Modal>
     </View>
   );
 }
