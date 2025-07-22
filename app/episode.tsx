@@ -11,9 +11,11 @@ import {
 import { useLocalSearchParams } from 'expo-router';
 import { Text } from '~/components/ui/text';
 import { Button } from '~/components/ui/button';
-import { X } from 'lucide-react-native';
+import { Server, X } from 'lucide-react-native';
 import { VideoView, useVideoPlayer, VideoSource } from 'expo-video';
 import * as IntentLauncher from 'expo-intent-launcher';
+import { extractStreamTapeUrl } from '~/lib/extractors/streamtape';
+import { fetchMp4Link } from '~/lib/extractors/voe';
 
 interface Server {
   name: string;
@@ -73,14 +75,22 @@ export default function EpisodeScreen() {
     setOptionModalVisible(true);
   };
 
-  const handleInternalPlay = () => {
+  const handleInternalPlay = async () => {
     if (!selectedServer) return;
 
-    const sourceUrl = selectedServer.source;
+    let sourceUrl = selectedServer.source;
     const headers = {
       'Referer': selectedServer.url,
     };
-
+    if (selectedServer.name === 'Stape') {
+      // console.log('Extracting StreamTape URL for internal player');
+      sourceUrl = await extractStreamTapeUrl(selectedServer.url)
+    }
+    if (selectedServer.name == "Voe") {
+      // console.log('Extracting MP4 link from Voe');
+      sourceUrl = await fetchMp4Link(selectedServer.url, 'https://voe.sx/') as string;
+      // console.log('Extracted MP4 link:', sourceUrl);
+    }
     console.log('Playing video internally', sourceUrl, headers);
     setVideoSource({ uri: sourceUrl, headers });
     setVideoPlayerVisible(true);
@@ -88,11 +98,11 @@ export default function EpisodeScreen() {
     setSelectedServer(null);
   };
 
-  const handleExternalPlay = () => {
+  const handleExternalPlay = async () => {
     if (!selectedServer) return;
 
     const server = selectedServer;
-    const sourceUrl = server.source;
+    let sourceUrl = server.source;
     setOptionModalVisible(false);
     setSelectedServer(null);
 
@@ -104,6 +114,16 @@ export default function EpisodeScreen() {
       const extras = {
         'android.intent.extra.HTTP_HEADERS': headersArray,
       };
+      if (server.name == 'Stape') {
+        // console.log('Extracting StreamTape URL for external player');
+        sourceUrl = await extractStreamTapeUrl(server.url);
+        // console.log('Extracted StreamTape URL:', sourceUrl);
+      }
+      if (server.name == "Voe") {
+        // console.log('Extracting MP4 link from Voe');
+        sourceUrl = await fetchMp4Link(server.url, 'https://voe.sx/') as string;
+        // console.log('Extracted MP4 link:', sourceUrl);
+      }
       console.log('Opening video with IntentLauncher', sourceUrl, extras);
       IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
         data: sourceUrl,
