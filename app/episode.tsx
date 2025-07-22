@@ -12,7 +12,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Text } from '~/components/ui/text';
 import { Button } from '~/components/ui/button';
 import { X } from 'lucide-react-native';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { VideoView, useVideoPlayer, VideoSource } from 'expo-video';
 import * as IntentLauncher from 'expo-intent-launcher';
 
 interface Server {
@@ -35,12 +35,11 @@ export default function EpisodeScreen() {
   const [error, setError] = React.useState<string | null>(null);
 
   const [videoPlayerVisible, setVideoPlayerVisible] = React.useState(false);
-  const [videoSource, setVideoSource] = React.useState<{
-    uri: string;
-    headers?: Record<string, string>;
-  } | null>(null);
+  const [videoSource, setVideoSource] = React.useState<VideoSource | null>(null);
+  const [isOptionModalVisible, setOptionModalVisible] = React.useState(false);
+  const [selectedServer, setSelectedServer] = React.useState<Server | null>(null);
 
-  const player = useVideoPlayer(videoSource?.uri || '');
+  const player = useVideoPlayer(videoSource);
 
   React.useEffect(() => {
     if (!url) return;
@@ -64,25 +63,46 @@ export default function EpisodeScreen() {
   }, [url]);
 
   React.useEffect(() => {
-    if (videoSource?.uri) {
+    if (videoPlayerVisible && player) {
       player.play();
     }
-  }, [videoSource, player]);
+  }, [videoPlayerVisible, player]);
 
   const handleServerPress = (server: Server) => {
+    setSelectedServer(server);
+    setOptionModalVisible(true);
+  };
+
+  const handleInternalPlay = () => {
+    if (!selectedServer) return;
+
+    const sourceUrl = selectedServer.source;
+    const headers = {
+      'Referer': selectedServer.url,
+    };
+
+    console.log('Playing video internally', sourceUrl, headers);
+    setVideoSource({ uri: sourceUrl, headers });
+    setVideoPlayerVisible(true);
+    setOptionModalVisible(false);
+    setSelectedServer(null);
+  };
+
+  const handleExternalPlay = () => {
+    if (!selectedServer) return;
+
+    const server = selectedServer;
     const sourceUrl = server.source;
-
-    // 1. Define los headers como un array de strings en formato "Clave: Valor"
-    const headersArray = Object.entries({
-      Referer: server.url,
-      // CustomHeader: "ValorPersonalizado"
-    }).map(([key, value]) => `${key}: ${value}`);
-
+    setOptionModalVisible(false);
+    setSelectedServer(null);
 
     if (Platform.OS === 'android') {
-      // 2. Configura el extra con la clave específica de Android
+      const headersArray = Object.entries({
+        Referer: server.url,
+      }).map(([key, value]) => `${key}: ${value}`);
+
       const extras = {
-        "android.intent.extra.HTTP_HEADERS": headersArray
+        'android.intent.extra.HTTP_HEADERS': headersArray,
       };
       console.log('Opening video with IntentLauncher', sourceUrl, extras);
       IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
@@ -94,15 +114,15 @@ export default function EpisodeScreen() {
         Linking.openURL(server.url).catch((e) => console.error("Couldn't load page", e));
       });
     } else {
-      let headers: Record<string, string> | undefined;
-      if (server.name === 'YourUpload') {
-        headers = {
-          Referer: server.url,
-        };
-      }
-      setVideoSource({ uri: sourceUrl, headers });
-      setVideoPlayerVisible(true);
+      Linking.openURL(sourceUrl).catch(() => {
+        Linking.openURL(server.url).catch((e) => console.error("Couldn't load page", e));
+      });
     }
+  };
+
+  const closeOptionModal = () => {
+    setOptionModalVisible(false);
+    setSelectedServer(null);
   };
 
   if (loading) {
@@ -135,13 +155,40 @@ export default function EpisodeScreen() {
               variant='outline'
               className='w-full'
               onPress={() => handleServerPress(server)}
-              disabled={!isPressable}
-            >
+              disabled={!isPressable}>
               <Text>{server.name}</Text>
             </Button>
           );
         })}
       </View>
+
+      <Modal
+        visible={isOptionModalVisible}
+        onRequestClose={closeOptionModal}
+        transparent
+        animationType='fade'>
+        <View className='flex-1 justify-center items-center bg-black/50 p-4'>
+          <View className='bg-card p-6 rounded-lg w-full max-w-sm'>
+            <Text className='text-lg font-bold text-foreground text-center mb-4'>
+              Seleccionar reproductor
+            </Text>
+            <View className='gap-y-2'>
+              <Button onPress={handleInternalPlay}>
+                <Text>Interno</Text>
+              </Button>
+              <Button onPress={handleExternalPlay} variant='secondary'>
+                <Text>Externo</Text>
+              </Button>
+            </View>
+            <Button
+              onPress={closeOptionModal}
+              variant='ghost'
+              className='mt-4'>
+              <Text>Cancelar</Text>
+            </Button>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={videoPlayerVisible}
@@ -150,14 +197,13 @@ export default function EpisodeScreen() {
           setVideoSource(null);
           player.pause();
         }}
-        supportedOrientations={['portrait', 'landscape']}
-      >
+        supportedOrientations={['portrait', 'landscape']}>
         <View className='flex-1 bg-black justify-center'>
           {videoSource && (
             <VideoView
               player={player}
               style={{ flex: 1 }}
-              contentFit="contain"
+              contentFit='contain'
             // controls={true}
             />
           )}
@@ -167,8 +213,7 @@ export default function EpisodeScreen() {
               setVideoPlayerVisible(false);
               setVideoSource(null);
               player.pause();
-            }}
-          >
+            }}>
             <X size={30} color='white' />
           </TouchableOpacity>
         </View>
