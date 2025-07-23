@@ -168,7 +168,9 @@ export default function EpisodeScreen() {
       </Text>
       <View className='gap-y-4'>
         {details.servers.map((server) => {
-          const isPressable = server.source && server.source !== 'unknown';
+          const validSources = ['streamtape', 'voe', 'YourUpload', 'Stape'];
+          // const isPressable = validSources.includes(server.name);
+          const isPressable = validSources.some(name => server.name.toLowerCase().includes(name.toLowerCase()));
           return (
             <Button
               key={server.name}
