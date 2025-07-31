@@ -47,6 +47,13 @@ export default function RootLayout() {
             headerRight: () => <ThemeToggle />,
           }}
         />
+        <Stack.Screen
+          name='episode'
+          options={{
+            title: 'Episode',
+            headerRight: () => <ThemeToggle />,
+          }}
+        />
       </Stack>
       <PortalHost />
     </ThemeProvider>
