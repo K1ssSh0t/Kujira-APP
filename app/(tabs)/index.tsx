@@ -5,14 +5,12 @@ import {
   ActivityIndicator,
   ImageBackground,
   Pressable,
-  Modal,
-  ScrollView,
   TouchableOpacity,
 } from 'react-native';
 import { Card, CardTitle } from '~/components/ui/card';
 import { Text } from '~/components/ui/text';
 import { cn } from '~/lib/utils';
-import { Info, X } from 'lucide-react-native';
+import { Info } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 type Provider = 'tioanime' | 'animeflv';
@@ -22,21 +20,11 @@ const API_URLS: Record<Provider, string> = {
   animeflv: 'https://kujira.unusualoticramo.workers.dev/animeflv/latest',
 };
 
-const BASE_API_URL = 'https://kujira.unusualoticramo.workers.dev';
-
 interface Anime {
   title: string;
   url: string;
   img: string;
   episode: string;
-}
-
-interface AnimeDetails {
-  title: string;
-  img: string;
-  synopsis: string;
-  genres: string[];
-  episodes: { name: string; url: string }[];
 }
 
 export default function Screen() {
@@ -45,11 +33,6 @@ export default function Screen() {
   const [data, setData] = React.useState<Anime[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-
-  const [modalVisible, setModalVisible] = React.useState(false);
-  const [selectedAnime, setSelectedAnime] = React.useState<Anime | null>(null);
-  const [animeDetails, setAnimeDetails] = React.useState<AnimeDetails | null>(null);
-  const [modalLoading, setModalLoading] = React.useState(false);
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -78,22 +61,13 @@ export default function Screen() {
     fetchData();
   }, [provider]);
 
-  const handleInfoPress = async (anime: Anime) => {
-    setSelectedAnime(anime);
-    setModalVisible(true);
-    setModalLoading(true);
-    setAnimeDetails(null);
-
-    try {
-      const animeUrlSlug = anime.url.replace(/\/episode\//, '/anime/').replace(/-\d+$/, '');
-      const detailsUrl = `${BASE_API_URL}${animeUrlSlug}`;
-      const response = await fetch(detailsUrl);
-      const json = await response.json();
-      setAnimeDetails(json);
-    } catch (error) {
-      console.error('Failed to fetch anime details:', error);
-    }
-    setModalLoading(false);
+  const handleInfoPress = (anime: Anime) => {
+    const animeUrlSlug = anime.url.replace(/\/episode\//, '/anime/').replace(/-\d+$/, '');
+    // router.push({
+    //   pathname: '/anime-details' as any,
+    //   params: { url: animeUrlSlug },
+    // });
+    router.push(`/anime-details?url=${encodeURIComponent(animeUrlSlug)}`);
   };
 
   const handleCardPress = (url: string) => {
@@ -111,13 +85,13 @@ export default function Screen() {
             <Text className='text-white/80 text-sm'>{item.episode}</Text>
           </View>
           <TouchableOpacity
-            className='absolute top-2 right-2 bg-primary/80 p-2 rounded-full'
+            className='absolute top-2 right-2 bg-secondary dark:bg-secondary-foreground p-2 rounded-full'
             onPress={(e) => {
               e.stopPropagation(); // Prevent card press from firing
               handleInfoPress(item);
             }}
           >
-            <Info size={20} className='text-primary-foreground' />
+            <Info size={20} className='text-secondary-foreground dark:text-primary' />
           </TouchableOpacity>
         </ImageBackground>
       </Card>
@@ -169,59 +143,6 @@ export default function Screen() {
           key={provider}
         />
       )}
-
-      <Modal
-        animationType='slide'
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View className='flex-1 justify-center items-center bg-black/80'>
-          <View className='w-11/12 h-5/6 bg-card rounded-2xl p-4'>
-            <TouchableOpacity
-              className='absolute top-4 right-4 z-10'
-              onPress={() => setModalVisible(false)}
-            >
-              <X size={24} className='text-foreground' />
-            </TouchableOpacity>
-            {modalLoading || !animeDetails ? (
-              <ActivityIndicator size='large' className='flex-1' />
-            ) : (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <ImageBackground
-                  source={{ uri: animeDetails.img }}
-                  className='w-full h-56 rounded-xl overflow-hidden mb-4'
-                />
-                <Text className='text-2xl font-bold mb-2'>{animeDetails.title}</Text>
-                <View className='flex-row flex-wrap gap-2 mb-4'>
-                  {animeDetails.genres.map((genre) => (
-                    <View key={genre} className='bg-secondary px-3 py-1 rounded-full'>
-                      <Text className='text-secondary-foreground text-xs'>{genre}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text className='text-base text-muted-foreground mb-4'>
-                  {animeDetails.synopsis}
-                </Text>
-                <Text className='text-xl font-bold mb-2'>Episodes</Text>
-                {animeDetails.episodes.map((ep) => (
-                  <Pressable
-                    key={ep.url}
-                    onPress={() => {
-                      setModalVisible(false);
-                      handleCardPress(ep.url);
-                    }}
-                  >
-                    <View className='bg-secondary p-3 rounded-lg mb-2'>
-                      <Text className='text-secondary-foreground'>{ep.name}</Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
