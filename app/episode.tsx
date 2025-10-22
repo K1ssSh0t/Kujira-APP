@@ -32,6 +32,7 @@ const BASE_API_URL = 'https://kujira.unusualoticramo.workers.dev';
 
 export default function EpisodeScreen() {
   const { url } = useLocalSearchParams<{ url: string }>();
+  const { provider } = useLocalSearchParams<{ provider: string }>();
   const [details, setDetails] = React.useState<EpisodeDetails | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -50,10 +51,17 @@ export default function EpisodeScreen() {
       setLoading(true);
       setError(null);
       try {
-        const episodeUrl = `${BASE_API_URL}${url}`;
-        const response = await fetch(episodeUrl);
-        const json = await response.json();
-        setDetails(json);
+        if (provider === 'jkanime') {
+          const episodeUrl = `${BASE_API_URL}${url}`;
+          const response = await fetch(episodeUrl);
+          const json = await response.json();
+          setDetails(json);
+        } else {
+          const episodeUrl = `${BASE_API_URL}${url}`;
+          const response = await fetch(episodeUrl);
+          const json = await response.json();
+          setDetails(json);
+        }
       } catch (e) {
         setError('Failed to fetch episode details');
       } finally {

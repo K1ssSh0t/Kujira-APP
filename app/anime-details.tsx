@@ -24,6 +24,7 @@ interface AnimeDetails {
 export default function AnimeDetailsScreen() {
   const router = useRouter();
   const { url } = useLocalSearchParams<{ url: string }>();
+  const { provider } = useLocalSearchParams<{ provider: string }>();
   const [details, setDetails] = React.useState<AnimeDetails | null>(null);
   const [loading, setLoading] = React.useState(true);
 
@@ -32,10 +33,17 @@ export default function AnimeDetailsScreen() {
       if (!url) return;
       setLoading(true);
       try {
-        const detailsUrl = `${BASE_API_URL}${url}`;
-        const response = await fetch(detailsUrl);
-        const json = await response.json();
-        setDetails(json);
+        if (provider === 'jkanime') {
+          const detailsUrl = `${BASE_API_URL}${url}`;
+          const response = await fetch(detailsUrl);
+          const json = await response.json();
+          setDetails(json);
+        } else {
+          const detailsUrl = `${BASE_API_URL}${url}`;
+          const response = await fetch(detailsUrl);
+          const json = await response.json();
+          setDetails(json);
+        }
       } catch (error) {
         console.error('Failed to fetch anime details:', error);
       }

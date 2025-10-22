@@ -30,6 +30,13 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <Settings color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="jkanime"
+        options={{
+          title: 'Jkanime',
+          tabBarIcon: ({ color }) => <Settings color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
