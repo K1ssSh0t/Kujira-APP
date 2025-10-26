@@ -10,6 +10,7 @@ import {
 import { Text } from '~/components/ui/text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
+import axios from 'axios';
 
 const BASE_API_URL = 'https://kujira.unusualoticramo.workers.dev';
 
@@ -34,10 +35,17 @@ export default function AnimeDetailsScreen() {
       setLoading(true);
       try {
         if (provider === 'jkanime') {
-          const detailsUrl = `${BASE_API_URL}${url}`;
-          const response = await fetch(detailsUrl);
-          const json = await response.json();
-          setDetails(json);
+
+
+          const p = new URL(url).pathname;
+          const parts = p.split('/').filter(Boolean);
+          const { data: html } = await axios.get<string>(`https://jkanime.net/${parts[0]}`);
+          const { data } = await axios.post<AnimeDetails>(`${BASE_API_URL}/jkanimev2/anime/${parts[0]}`, {
+            html
+          });
+          // console.log(data, "data");
+          //TODO: PENDIENTE LA PARTE DE LOS EPISODIOS VIENE VACIO
+          setDetails(data);
         } else {
           const detailsUrl = `${BASE_API_URL}${url}`;
           const response = await fetch(detailsUrl);
@@ -71,8 +79,8 @@ export default function AnimeDetailsScreen() {
           <View className="p-4">
             <Text className="text-2xl font-bold mb-2">{details.title}</Text>
             <View className="flex-row flex-wrap gap-2 mb-4">
-              {details.genres.map((genre) => (
-                <View key={genre} className="bg-secondary px-3 py-1 rounded-full">
+              {[...new Set(details.genres)].map((genre, index) => (
+                <View key={`${genre}-${index}`} className="bg-secondary px-3 py-1 rounded-full">
                   <Text className="text-secondary-foreground text-xs">{genre}</Text>
                 </View>
               ))}

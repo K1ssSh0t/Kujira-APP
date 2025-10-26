@@ -16,6 +16,7 @@ import { VideoView, useVideoPlayer, VideoSource } from 'expo-video';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { extractStreamTapeUrl } from '~/lib/extractors/streamtape';
 import { fetchMp4Link } from '~/lib/extractors/voe';
+import axios from 'axios';
 
 interface Server {
   name: string;
@@ -52,10 +53,15 @@ export default function EpisodeScreen() {
       setError(null);
       try {
         if (provider === 'jkanime') {
-          const episodeUrl = `${BASE_API_URL}${url}`;
-          const response = await fetch(episodeUrl);
-          const json = await response.json();
-          setDetails(json);
+
+          const p = new URL(url).pathname;
+          const parts = p.split('/').filter(Boolean);
+          const { data: html } = await axios.get<string>(`${url}`);
+          const { data } = await axios.post<EpisodeDetails>(`${BASE_API_URL}/jkanimev2/episode/${parts[0]}-${parts[1]}`, {
+            html
+          });
+
+          setDetails(data);
         } else {
           const episodeUrl = `${BASE_API_URL}${url}`;
           const response = await fetch(episodeUrl);
@@ -90,7 +96,7 @@ export default function EpisodeScreen() {
     const headers = {
       'Referer': selectedServer.url,
     };
-    if (selectedServer.name === 'Stape') {
+    if (selectedServer.name === 'Stape' || selectedServer.name === 'Streamtape') {
       // console.log('Extracting StreamTape URL for internal player');
       sourceUrl = await extractStreamTapeUrl(selectedServer.url)
     }
@@ -122,7 +128,7 @@ export default function EpisodeScreen() {
       const extras = {
         'android.intent.extra.HTTP_HEADERS': headersArray,
       };
-      if (server.name == 'Stape') {
+      if (server.name == 'Stape' || server.name == 'Streamtape') {
         // console.log('Extracting StreamTape URL for external player');
         sourceUrl = await extractStreamTapeUrl(server.url);
         // console.log('Extracted StreamTape URL:', sourceUrl);

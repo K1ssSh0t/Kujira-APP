@@ -50,7 +50,13 @@ export default function Screen() {
                     });
                     setData(data);
                 } else {
-                    const { data } = await axios.get<Anime[]>(API_URLS[provider]);
+                    let { data } = await axios.get<Anime[]>(API_URLS[provider]);
+                    if (provider === 'animeflv') {
+                        data = data.map((item: Anime) => ({
+                            ...item,
+                            img: `https://animeflv.net${item.img}`,
+                        }));
+                    }
                     setData(data);
                 }
             } catch (e) {
