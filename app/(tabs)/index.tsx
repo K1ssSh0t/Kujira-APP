@@ -9,11 +9,9 @@ import {
 } from "react-native";
 import { Card, CardTitle } from "~/components/ui/card";
 import { Text } from "~/components/ui/text";
-import { cn } from "~/lib/utils";
 import { Info } from "lucide-react-native";
 import { useRouter } from "expo-router";
-
-type Provider = "tioanime" | "animeflv" | "animeav1" | "monoschinos";
+import { ProviderSelector, Provider } from "~/components/ProviderSelector";
 
 const API_URLS: Record<Provider, string> = {
     tioanime: "https://kujira.unusualoticramo.workers.dev/tioanime/latest",
@@ -68,10 +66,6 @@ export default function Screen() {
         const animeUrlSlug = anime.url
             .replace(/\/episode\//, "/anime/")
             .replace(/-\d+$/, "");
-        // router.push({
-        //   pathname: '/anime-details' as any,
-        //   params: { url: animeUrlSlug },
-        // });
         router.push(`/anime-details?url=${encodeURIComponent(animeUrlSlug)}`);
     };
 
@@ -116,72 +110,10 @@ export default function Screen() {
 
     return (
         <View className="flex-1 p-4 bg-background">
-            <View className="flex-row justify-center mb-4 p-1 bg-muted rounded-lg">
-                <Pressable
-                    onPress={() => setProvider("tioanime")}
-                    className={cn(
-                        "flex-1 p-2 items-center rounded-md",
-                        provider === "tioanime" && "bg-primary",
-                    )}
-                >
-                    <Text
-                        className={cn(
-                            provider === "tioanime" &&
-                                "text-primary-foreground",
-                        )}
-                    >
-                        TioAnime
-                    </Text>
-                </Pressable>
-                <Pressable
-                    onPress={() => setProvider("animeflv")}
-                    className={cn(
-                        "flex-1 p-2 items-center rounded-md",
-                        provider === "animeflv" && "bg-primary",
-                    )}
-                >
-                    <Text
-                        className={cn(
-                            provider === "animeflv" &&
-                                "text-primary-foreground",
-                        )}
-                    >
-                        AnimeFLV
-                    </Text>
-                </Pressable>
-                <Pressable
-                    onPress={() => setProvider("animeav1")}
-                    className={cn(
-                        "flex-1 p-2 items-center rounded-md",
-                        provider === "animeav1" && "bg-primary",
-                    )}
-                >
-                    <Text
-                        className={cn(
-                            provider === "animeav1" &&
-                                "text-primary-foreground",
-                        )}
-                    >
-                        AnimeAV1
-                    </Text>
-                </Pressable>
-                <Pressable
-                    onPress={() => setProvider("monoschinos")}
-                    className={cn(
-                        "flex-1 p-2 items-center rounded-md",
-                        provider === "monoschinos" && "bg-primary",
-                    )}
-                >
-                    <Text
-                        className={cn(
-                            provider === "monoschinos" &&
-                                "text-primary-foreground",
-                        )}
-                    >
-                        Monoschinos
-                    </Text>
-                </Pressable>
-            </View>
+            <ProviderSelector
+                provider={provider}
+                onProviderChange={setProvider}
+            />
 
             {loading ? (
                 <View className="flex-1 justify-center items-center">
