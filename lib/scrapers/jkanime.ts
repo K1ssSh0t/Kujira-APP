@@ -1,3 +1,4 @@
+import { getCache, setCache } from "../cache";
 import axios from "axios";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -218,6 +219,12 @@ function extractRelatedAnimes(html: string): AnimeRelated[] {
    🧠 GET ANIME INFO
 =================================== */
 export async function GetAnimeInfo(anime: string): Promise<AnimeData | null> {
+  const cacheKey = `anime_info_${anime}`;
+  const cachedData = await getCache<AnimeData>(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
   try {
     const response = await axiosInstance.get(`${URL}${anime}`);
     const html = response.data as string;
@@ -227,7 +234,7 @@ export async function GetAnimeInfo(anime: string): Promise<AnimeData | null> {
 
     const slug = extractAnimeSlug(html, title);
 
-    return {
+    const animeData = {
       title,
       title_alt: extractAltTitles(html),
       img: extractImage(html),
@@ -237,6 +244,9 @@ export async function GetAnimeInfo(anime: string): Promise<AnimeData | null> {
       episodes: extractEpisodes(html, slug),
       related: extractRelatedAnimes(html),
     };
+
+    await setCache(cacheKey, animeData);
+    return animeData;
   } catch (error) {
     console.error("Error extracting anime info:", error);
     return null;
@@ -249,6 +259,12 @@ export async function GetAnimeInfo(anime: string): Promise<AnimeData | null> {
 export async function GetEpisodeInfo(
   episode: string
 ): Promise<EpisodeData | null> {
+  const cacheKey = `episode_info_${episode}`;
+  const cachedData = await getCache<EpisodeData>(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
   try {
     const match = episode.match(/^(.*)-(\d+)$/);
     const response = await axiosInstance.get(`${URL}${match![1]}/${match![2]}`);
@@ -288,7 +304,9 @@ export async function GetEpisodeInfo(
       }
     }
 
-    return { title, numberEpisode, servers };
+    const episodeData = { title, numberEpisode, servers };
+    await setCache(cacheKey, episodeData);
+    return episodeData;
   } catch (error) {
     console.error("Error extracting episode info:", error);
     return null;
@@ -299,6 +317,12 @@ export async function GetEpisodeInfo(
    🕒 GET LATEST ANIME
 =================================== */
 export async function GetLatest(): Promise<LatestAnime[]> {
+  const cacheKey = "latest_anime";
+  const cachedData = await getCache<LatestAnime[]>(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
   try {
     const response = await fetchWithRetry(URL, 5);
 
@@ -370,6 +394,7 @@ export async function GetLatest(): Promise<LatestAnime[]> {
       }
     }
 
+    await setCache(cacheKey, latestAnimes);
     return latestAnimes;
   } catch (error) {
     console.error("Error fetching latest animes:", error);
@@ -381,6 +406,12 @@ export async function GetLatest(): Promise<LatestAnime[]> {
    🔍 GET ANIME BY FILTER
 =================================== */
 export async function GetAnimeByFilter(title: string): Promise<AnimeResult[]> {
+  const cacheKey = `anime_filter_${title}`;
+  const cachedData = await getCache<AnimeResult[]>(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
   try {
     const response = await axiosInstance.get(`${URL}buscar/${title}`);
     const html = response.data as string;
@@ -415,6 +446,7 @@ export async function GetAnimeByFilter(title: string): Promise<AnimeResult[]> {
       }
     }
 
+    await setCache(cacheKey, results);
     return results;
   } catch (error) {
     console.error("Error fetching filtered animes:", error);

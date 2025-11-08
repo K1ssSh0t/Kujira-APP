@@ -10,6 +10,7 @@ import {
 import { Text } from "~/components/ui/text";
 import { useRouter } from "expo-router";
 import { ProviderSelector, Provider } from "~/components/ProviderSelector";
+import { getCache, setCache } from "~/lib/cache";
 
 const BASE_API_URL = "https://kujira.unusualoticramo.workers.dev";
 
@@ -37,6 +38,16 @@ export default function Screen() {
         if (!search) return;
         setLoading(true);
         setResults([]);
+
+        const cacheKey = `search_anime_${provider}_${search}`;
+        const cachedData = await getCache<Anime[]>(cacheKey);
+
+        if (cachedData) {
+            setResults(cachedData);
+            setLoading(false);
+            return;
+        }
+
         try {
             const response = await fetch(
                 `${BASE_API_URL}/${provider}/search?title=${search}`,
@@ -51,6 +62,7 @@ export default function Screen() {
             }
 
             setResults(data);
+            await setCache(cacheKey, data);
         } catch (error) {
             console.error(error);
         } finally {
@@ -59,7 +71,13 @@ export default function Screen() {
     };
 
     const handleAnimePress = (anime: Anime) => {
-        router.push(`/anime-details?url=${encodeURIComponent(anime.url)}`);
+        router.push({
+            pathname: "/anime-details",
+            params: {
+                url: anime.url,
+                provider: provider,
+            },
+        });
     };
 
     return (

@@ -17,6 +17,7 @@ import * as IntentLauncher from "expo-intent-launcher";
 import { extractStreamTapeUrl } from "~/lib/extractors/streamtape";
 import { fetchMp4Link } from "~/lib/extractors/voe";
 import axios from "axios";
+import { addToHistory } from "~/lib/history";
 
 interface Server {
     name: string;
@@ -33,8 +34,12 @@ interface EpisodeDetails {
 const BASE_API_URL = "https://kujira.unusualoticramo.workers.dev";
 
 export default function EpisodeScreen() {
-    const { url } = useLocalSearchParams<{ url: string }>();
-    const { provider } = useLocalSearchParams<{ provider: string }>();
+    const { url, provider, animeTitle, animeImage } = useLocalSearchParams<{
+        url: string;
+        provider: string;
+        animeTitle?: string;
+        animeImage?: string;
+    }>();
     const [details, setDetails] = React.useState<EpisodeDetails | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
@@ -96,8 +101,34 @@ export default function EpisodeScreen() {
         setOptionModalVisible(true);
     };
 
+    const addCurrentEpisodeToHistory = async () => {
+        if (!animeTitle || !animeImage || !provider || !url || !details) return;
+
+        try {
+            const episodeNumberMatch = url.match(/-(\d+)$/);
+            const episodeNumber = episodeNumberMatch
+                ? parseInt(episodeNumberMatch[1], 10)
+                : 0;
+
+            const animeIdMatch = url.match(/\/([^\/]+)-\d+$/);
+            const animeId = animeIdMatch ? animeIdMatch[1] : "";
+
+            await addToHistory({
+                episodeId: url,
+                animeId: animeId,
+                title: animeTitle,
+                image: animeImage,
+                episodeNumber: episodeNumber,
+                provider: provider,
+            });
+        } catch (e) {
+            console.error("Could not add to history", e);
+        }
+    };
+
     const handleInternalPlay = async () => {
         if (!selectedServer) return;
+        await addCurrentEpisodeToHistory();
 
         let sourceUrl = selectedServer.source;
         const headers = {
@@ -108,18 +139,14 @@ export default function EpisodeScreen() {
             selectedServer.name === "Streamtape" ||
             selectedServer.name === "StreamTape"
         ) {
-            // console.log('Extracting StreamTape URL for internal player');
             sourceUrl = await extractStreamTapeUrl(selectedServer.url);
         }
         if (selectedServer.name == "Voe" || selectedServer.name == "Voex") {
-            // console.log('Extracting MP4 link from Voe');
             sourceUrl = (await fetchMp4Link(
                 selectedServer.url,
                 "https://voe.sx/",
             )) as string;
-            // console.log('Extracted MP4 link:', sourceUrl);
         }
-        console.log("Playing video internally", sourceUrl, headers);
         setVideoSource({ uri: sourceUrl, headers });
         setVideoPlayerVisible(true);
         setOptionModalVisible(false);
@@ -128,6 +155,7 @@ export default function EpisodeScreen() {
 
     const handleExternalPlay = async () => {
         if (!selectedServer) return;
+        await addCurrentEpisodeToHistory();
 
         const server = selectedServer;
         let sourceUrl = server.source;
@@ -147,23 +175,18 @@ export default function EpisodeScreen() {
                 server.name == "Streamtape" ||
                 server.name == "StreamTape"
             ) {
-                // console.log('Extracting StreamTape URL for external player');
                 sourceUrl = await extractStreamTapeUrl(server.url);
-                // console.log('Extracted StreamTape URL:', sourceUrl);
             }
             if (
                 server.name == "Voe" ||
                 server.name == "VoeStream" ||
                 server.name == "Voex"
             ) {
-                // console.log('Extracting MP4 link from Voe');
                 sourceUrl = (await fetchMp4Link(
                     server.url,
                     "https://voe.sx/",
                 )) as string;
-                // console.log('Extracted MP4 link:', sourceUrl);
             }
-            console.log("Opening video with IntentLauncher", sourceUrl, extras);
             IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
                 data: sourceUrl,
                 extra: extras,
@@ -222,7 +245,6 @@ export default function EpisodeScreen() {
                         "YourUpload",
                         "Stape",
                     ];
-                    // const isPressable = validSources.includes(server.name);
                     const isPressable = validSources.some((name) =>
                         server.name.toLowerCase().includes(name.toLowerCase()),
                     );
@@ -288,7 +310,6 @@ export default function EpisodeScreen() {
                             player={player}
                             style={{ flex: 1 }}
                             contentFit="contain"
-                            // controls={true}
                         />
                     )}
                     <TouchableOpacity

@@ -12,6 +12,7 @@ import { Text } from "~/components/ui/text";
 import { Info } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { ProviderSelector, Provider } from "~/components/ProviderSelector";
+import { getCache, setCache } from "~/lib/cache";
 
 const API_URLS: Record<Provider, string> = {
     tioanime: "https://kujira.unusualoticramo.workers.dev/tioanime/latest",
@@ -39,6 +40,15 @@ export default function Screen() {
         const fetchData = async () => {
             setLoading(true);
             setError(null);
+            const cacheKey = `latest_anime_${provider}`;
+            const cachedData = await getCache<Anime[]>(cacheKey);
+
+            if (cachedData) {
+                setData(cachedData);
+                setLoading(false);
+                return;
+            }
+
             try {
                 const response = await fetch(API_URLS[provider]);
                 let json = await response.json();
@@ -51,6 +61,7 @@ export default function Screen() {
                 }
 
                 setData(json);
+                await setCache(cacheKey, json);
             } catch (e) {
                 setError("Failed to fetch data");
                 setData([]);
@@ -66,16 +77,30 @@ export default function Screen() {
         const animeUrlSlug = anime.url
             .replace(/\/episode\//, "/anime/")
             .replace(/-\d+$/, "");
-        router.push(`/anime-details?url=${encodeURIComponent(animeUrlSlug)}`);
+        router.push({
+            pathname: "/anime-details",
+            params: {
+                url: animeUrlSlug,
+                provider: provider,
+            },
+        });
     };
 
-    const handleCardPress = (url: string) => {
-        router.push(`/episode?url=${encodeURIComponent(url)}`);
+    const handleCardPress = (item: Anime) => {
+        router.push({
+            pathname: "/episode",
+            params: {
+                url: item.url,
+                provider: provider,
+                animeTitle: item.title,
+                animeImage: item.img,
+            },
+        });
     };
 
     const renderItem = ({ item }: { item: Anime }) => (
         <Pressable
-            onPress={() => handleCardPress(item.url)}
+            onPress={() => handleCardPress(item)}
             className="flex-1/2 p-1"
         >
             <Card className="w-full rounded-2xl overflow-hidden border-0">

@@ -62,7 +62,16 @@ export default function AnimeDetailsScreen() {
   }, [url]);
 
   const handleEpisodePress = (episodeUrl: string) => {
-    router.push(`/episode?url=${encodeURIComponent(episodeUrl)}`);
+    if (!details) return;
+    router.push({
+      pathname: "/episode",
+      params: {
+        url: episodeUrl,
+        provider: provider,
+        animeTitle: details.title,
+        animeImage: details.img,
+      },
+    });
   };
 
   return (
