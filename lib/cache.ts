@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const CACHE_PREFIX = "cache_";
-const CACHE_EXPIRATION = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_EXPIRATION = 30 * 60 * 1000; // 30 minutes
 
 interface CacheData<T> {
   timestamp: number;
