@@ -10,7 +10,8 @@ import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { ChevronDown } from "lucide-react-native";
-import { colorScheme } from "nativewind";
+import { useColorScheme } from "~/lib/useColorScheme";
+
 export type Provider = "tioanime" | "animeflv" | "animeav1" | "monoschinos";
 
 const PROVIDERS: { id: Provider; name: string }[] = [
@@ -30,6 +31,7 @@ export function ProviderSelector({
     onProviderChange,
 }: ProviderSelectorProps) {
     const [modalVisible, setModalVisible] = React.useState(false);
+    const { isDarkColorScheme } = useColorScheme();
 
 
     const selectedProvider = PROVIDERS.find((p) => p.id === provider);
@@ -48,7 +50,7 @@ export function ProviderSelector({
             >
                 <Text>{selectedProvider?.name || "Seleccionar Proveedor"}</Text>
                 <ChevronDown
-                    color={colorScheme.get() === "dark" ? "white" : "black"}
+                    color={isDarkColorScheme ? "white" : "black"}
                     size={16}
                 />
             </Button>
