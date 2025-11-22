@@ -10,7 +10,7 @@ import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { ChevronDown } from "lucide-react-native";
-
+import { colorScheme } from "nativewind";
 export type Provider = "tioanime" | "animeflv" | "animeav1" | "monoschinos";
 
 const PROVIDERS: { id: Provider; name: string }[] = [
@@ -31,6 +31,7 @@ export function ProviderSelector({
 }: ProviderSelectorProps) {
     const [modalVisible, setModalVisible] = React.useState(false);
 
+
     const selectedProvider = PROVIDERS.find((p) => p.id === provider);
 
     const handleSelect = (selectedProviderId: Provider) => {
@@ -41,13 +42,13 @@ export function ProviderSelector({
     return (
         <View className="mb-4">
             <Button
-                variant="outline"
+                variant="secondary"
                 onPress={() => setModalVisible(true)}
                 className="flex-row justify-between items-center w-full"
             >
                 <Text>{selectedProvider?.name || "Seleccionar Proveedor"}</Text>
                 <ChevronDown
-                    className="text-foreground dark:text-white"
+                    color={colorScheme.get() === "dark" ? "white" : "black"}
                     size={16}
                 />
             </Button>
@@ -68,7 +69,7 @@ export function ProviderSelector({
                     }}
                 >
                     <Pressable
-                        onPress={() => {}} // Prevent closing modal when clicking inside the card
+                        onPress={() => { }} // Prevent closing modal when clicking inside the card
                         className="w-full bg-card rounded-lg p-2 shadow-lg"
                     >
                         {PROVIDERS.map((p) => (

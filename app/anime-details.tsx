@@ -138,9 +138,10 @@ export default function AnimeDetailsScreen() {
                     key={s.value}
                     onPress={() => handleStatusChange(s.value)}
                     className={`px-4 py-2 rounded-full border ${watchStatus === s.value
-                        ? 'bg-primary border-primary'
-                        : 'bg-background border-border'
+                      ? 'bg-primary border-primary'
+                      : 'bg-background border-border'
                       } mr-2`}
+                    activeOpacity={1}
                   >
                     <Text
                       className={`${watchStatus === s.value ? 'text-primary-foreground' : 'text-foreground'

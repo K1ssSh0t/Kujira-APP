@@ -2,14 +2,15 @@ import React, { useCallback, useState } from "react";
 import {
     View,
     FlatList,
-    TouchableOpacity,
     Image,
     ActivityIndicator,
     ScrollView,
+    TouchableOpacity,
 } from "react-native";
 import { Text } from "~/components/ui/text";
 import { getWatchlist, WatchlistItem, WatchStatus } from "~/lib/watchlist";
 import { useFocusEffect, useRouter } from "expo-router";
+import { cn } from "~/lib/utils";
 
 export default function LibraryScreen() {
     const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -77,16 +78,18 @@ export default function LibraryScreen() {
                         <TouchableOpacity
                             key={f.value}
                             onPress={() => setFilter(f.value)}
-                            className={`px-4 py-2 rounded-full border ${filter === f.value
-                                ? "bg-blue-700 "
-                                : "bg-background "
-                                } mr-2`}
+                            className={cn(
+                                "px-4 py-2 rounded-full border mr-2",
+                                filter === f.value
+                                    ? "bg-primary border-primary"
+                                    : "bg-background border-border"
+                            )}
+                            activeOpacity={1}
                         >
                             <Text
-                                className={`${filter === f.value
-                                    ? "text-white"
-                                    : "text-foreground"
-                                    }`}
+                                className={cn(
+                                    filter === f.value ? "text-primary-foreground" : "text-foreground"
+                                )}
                             >
                                 {f.label}
                             </Text>
@@ -109,6 +112,7 @@ export default function LibraryScreen() {
                         <TouchableOpacity
                             className="flex-row items-center mb-4"
                             onPress={() => handlePress(item)}
+                            activeOpacity={1}
                         >
                             <Image
                                 source={{ uri: item.image }}
@@ -125,6 +129,10 @@ export default function LibraryScreen() {
                                 </View>
                                 <Text className="text-sm text-muted-foreground mt-1">
                                     Updated: {new Date(item.updatedAt).toLocaleDateString()}
+                                    {new Date(item.updatedAt).toLocaleTimeString()}
+                                </Text>
+                                <Text className="text-sm text-muted-foreground mt-1 capitalize">
+                                    Provider: {item.provider}
                                 </Text>
                             </View>
                         </TouchableOpacity>
