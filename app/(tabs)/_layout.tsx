@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Home, Search, Settings, History } from "lucide-react-native";
+import { Home, Search, Settings, History, Library } from "lucide-react-native";
 
 export default function TabsLayout() {
     return (
@@ -27,6 +27,13 @@ export default function TabsLayout() {
                 options={{
                     title: "History",
                     tabBarIcon: ({ color }) => <History color={color} />,
+                }}
+            />
+            <Tabs.Screen
+                name="library"
+                options={{
+                    title: "Library",
+                    tabBarIcon: ({ color }) => <Library color={color} />,
                 }}
             />
             <Tabs.Screen

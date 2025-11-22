@@ -11,6 +11,7 @@ import { Text } from '~/components/ui/text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
 import axios from 'axios';
+import { addToWatchlist, getWatchlistItem, removeFromWatchlist, WatchStatus } from '~/lib/watchlist';
 
 const BASE_API_URL = 'https://kujira.unusualoticramo.workers.dev';
 
@@ -28,6 +29,8 @@ export default function AnimeDetailsScreen() {
   const { provider } = useLocalSearchParams<{ provider: string }>();
   const [details, setDetails] = React.useState<AnimeDetails | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [watchStatus, setWatchStatus] = React.useState<WatchStatus | null>(null);
+  const [isWatchlistLoading, setIsWatchlistLoading] = React.useState(true);
 
   React.useEffect(() => {
     const fetchDetails = async () => {
@@ -61,6 +64,17 @@ export default function AnimeDetailsScreen() {
     fetchDetails();
   }, [url]);
 
+  React.useEffect(() => {
+    const checkWatchlist = async () => {
+      if (!url) return;
+      setIsWatchlistLoading(true);
+      const item = await getWatchlistItem(url);
+      setWatchStatus(item?.status || null);
+      setIsWatchlistLoading(false);
+    };
+    checkWatchlist();
+  }, [url]);
+
   const handleEpisodePress = (episodeUrl: string) => {
     if (!details) return;
     router.push({
@@ -73,6 +87,33 @@ export default function AnimeDetailsScreen() {
       },
     });
   };
+
+  const handleStatusChange = async (status: WatchStatus) => {
+    if (!details || !url) return;
+
+    if (status === watchStatus) {
+      // If clicking the same status, remove it (toggle off)
+      await removeFromWatchlist(url);
+      setWatchStatus(null);
+    } else {
+      await addToWatchlist({
+        animeId: url,
+        title: details.title,
+        image: details.img,
+        status: status,
+        provider: provider || 'unknown',
+      });
+      setWatchStatus(status);
+    }
+  };
+
+  const statuses: { label: string; value: WatchStatus }[] = [
+    { label: 'Watching', value: 'watching' },
+    { label: 'Plan to Watch', value: 'plan_to_watch' },
+    { label: 'Completed', value: 'completed' },
+    { label: 'On Hold', value: 'on_hold' },
+    { label: 'Dropped', value: 'dropped' },
+  ];
 
   return (
     <View className="flex-1 bg-card">
@@ -87,6 +128,31 @@ export default function AnimeDetailsScreen() {
           />
           <View className="p-4">
             <Text className="text-2xl font-bold mb-2">{details.title}</Text>
+
+            {/* Watchlist Controls */}
+            <View className="mb-4">
+              <Text className="text-lg font-semibold mb-2">Add to Library</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
+                {statuses.map((s) => (
+                  <TouchableOpacity
+                    key={s.value}
+                    onPress={() => handleStatusChange(s.value)}
+                    className={`px-4 py-2 rounded-full border ${watchStatus === s.value
+                        ? 'bg-primary border-primary'
+                        : 'bg-background border-border'
+                      } mr-2`}
+                  >
+                    <Text
+                      className={`${watchStatus === s.value ? 'text-primary-foreground' : 'text-foreground'
+                        }`}
+                    >
+                      {s.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
             <View className="flex-row flex-wrap gap-2 mb-4">
               {[...new Set(details.genres)].map((genre, index) => (
                 <View key={`${genre}-${index}`} className="bg-secondary px-3 py-1 rounded-full">
