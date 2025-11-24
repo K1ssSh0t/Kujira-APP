@@ -129,6 +129,7 @@ export default function LibraryScreen() {
                                 </View>
                                 <Text className="text-sm text-muted-foreground mt-1">
                                     Updated: {new Date(item.updatedAt).toLocaleDateString()}
+                                    {" "}
                                     {new Date(item.updatedAt).toLocaleTimeString()}
                                 </Text>
                                 <Text className="text-sm text-muted-foreground mt-1 capitalize">
