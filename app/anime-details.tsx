@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
 import axios from 'axios';
 import { addToWatchlist, getWatchlistItem, removeFromWatchlist, WatchStatus } from '~/lib/watchlist';
+import { syncLibraryStatusToMAL } from '~/lib/sync/service';
 
 const BASE_API_URL = 'https://kujira.unusualoticramo.workers.dev';
 
@@ -104,6 +105,17 @@ export default function AnimeDetailsScreen() {
         provider: provider || 'unknown',
       });
       setWatchStatus(status);
+
+      // Auto-sync to MyAnimeList
+      try {
+        const syncResult = await syncLibraryStatusToMAL(details.title, status);
+        if (__DEV__) {
+          console.log('[MAL Sync] Library status sync result:', syncResult);
+        }
+      } catch (syncError) {
+        // Fail silently - don't block the UI if sync fails
+        console.error('[MAL Sync] Failed to sync library status:', syncError);
+      }
     }
   };
 

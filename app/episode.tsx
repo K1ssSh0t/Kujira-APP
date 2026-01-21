@@ -18,6 +18,7 @@ import { extractStreamTapeUrl } from "~/lib/extractors/streamtape";
 import { fetchMp4Link } from "~/lib/extractors/voe";
 import axios from "axios";
 import { addToHistory } from "~/lib/history";
+import { syncEpisodeToMAL } from "~/lib/sync/service";
 
 interface Server {
     name: string;
@@ -121,6 +122,19 @@ export default function EpisodeScreen() {
                 episodeNumber: episodeNumber,
                 provider: provider,
             });
+
+            // Auto-sync to MyAnimeList
+            if (episodeNumber > 0) {
+                try {
+                    const syncResult = await syncEpisodeToMAL(animeTitle, episodeNumber);
+                    if (__DEV__) {
+                        console.log(`[MAL Sync] Episode sync result:`, syncResult);
+                    }
+                } catch (syncError) {
+                    // Fail silently - don't block video playback if sync fails
+                    console.error("[MAL Sync] Failed to sync episode:", syncError);
+                }
+            }
         } catch (e) {
             console.error("Could not add to history", e);
         }

@@ -10,6 +10,8 @@ import { useColorScheme } from '~/lib/useColorScheme';
 import { PortalHost } from '@rn-primitives/portal';
 import { ThemeToggle } from '~/components/ThemeToggle';
 import { setAndroidNavigationBar } from '~/lib/android-navigation-bar';
+import { Toaster } from 'sonner-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const LIGHT_THEME: Theme = {
   ...DefaultTheme,
@@ -36,34 +38,44 @@ export default function RootLayout() {
   const { isDarkColorScheme } = useColorScheme();
 
   return (
-    <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
-      <StatusBar style={isDarkColorScheme ? 'light' : 'dark'} />
-      <Stack>
-        <Stack.Screen name='index' options={{ headerShown: false }} />
-        <Stack.Screen
-          name='(tabs)'
-          options={{
-            title: 'Kujira APP',
-            headerRight: () => <ThemeToggle />,
-          }}
-        />
-        <Stack.Screen
-          name='episode'
-          options={{
-            title: 'Episode',
-            headerRight: () => <ThemeToggle />,
-          }}
-        />
-        <Stack.Screen
-          name='anime-details'
-          options={{
-            title: 'Anime Details',
-            headerRight: () => <ThemeToggle />,
-          }}
-        />
-      </Stack>
-      <PortalHost />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
+        <StatusBar style={isDarkColorScheme ? 'light' : 'dark'} />
+        <Stack>
+          <Stack.Screen name='index' options={{ headerShown: false }} />
+          <Stack.Screen
+            name='(tabs)'
+            options={{
+              title: 'Kujira APP',
+              headerRight: () => <ThemeToggle />,
+            }}
+          />
+          <Stack.Screen
+            name='episode'
+            options={{
+              title: 'Episode',
+              headerRight: () => <ThemeToggle />,
+            }}
+          />
+          <Stack.Screen
+            name='anime-details'
+            options={{
+              title: 'Anime Details',
+              headerRight: () => <ThemeToggle />,
+            }}
+          />
+          <Stack.Screen
+            name='auth-callback'
+            options={{
+              title: 'Authenticating...',
+              headerShown: false,
+            }}
+          />
+        </Stack>
+        <PortalHost />
+        <Toaster />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
