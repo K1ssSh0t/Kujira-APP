@@ -3,15 +3,19 @@ import { View, ActivityIndicator } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Text } from "~/components/ui/text";
 import { toast } from "sonner-native";
-import {
-  exchangeCodeForToken,
-  getUserInfo,
-} from "~/lib/sync/mal-client";
-import { updateMALTokens, loadSyncConfig } from "~/lib/sync/config";
+import { getUserInfo } from "~/lib/sync/mal-client";
+import { updateMALTokens, clearAuthState } from "~/lib/sync/config";
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ code?: string; error?: string }>();
+  // Backend redirects with tokens in query params
+  const params = useLocalSearchParams<{
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: string;
+    error?: string;
+    error_description?: string;
+  }>();
   const [processing, setProcessing] = React.useState(true);
   const [message, setMessage] = React.useState("Processing authentication...");
 
@@ -21,14 +25,14 @@ export default function AuthCallbackScreen() {
 
   const handleAuthCallback = async () => {
     try {
-      console.log("[Auth Callback] Received params:", params);
+      console.log("[Auth Callback] Received params:", Object.keys(params));
       
       // Check for error in callback
       if (params.error) {
-        console.log("[Auth Callback] Error from MAL:", params.error);
+        console.log("[Auth Callback] Error from backend:", params.error);
         setMessage("Authentication failed");
         toast.error("Authentication Failed", {
-          description: params.error || "Unknown error",
+          description: params.error_description || params.error || "Unknown error",
         });
         setTimeout(() => {
           router.replace("/(tabs)/config");
@@ -36,12 +40,12 @@ export default function AuthCallbackScreen() {
         return;
       }
 
-      // Check for code parameter
-      if (!params.code) {
-        console.log("[Auth Callback] No code received. Params:", params);
-        setMessage("No authorization code received");
+      // Check for tokens - backend now sends tokens directly
+      if (!params.access_token || !params.refresh_token || !params.expires_in) {
+        console.log("[Auth Callback] Missing tokens in callback");
+        setMessage("Missing authentication data");
         toast.error("Authentication Failed", {
-          description: "No authorization code received",
+          description: "No tokens received from server",
         });
         setTimeout(() => {
           router.replace("/(tabs)/config");
@@ -49,62 +53,16 @@ export default function AuthCallbackScreen() {
         return;
       }
 
-      console.log("[Auth Callback] Authorization code received:", params.code.substring(0, 10) + "...");
-
-      // Get stored config to retrieve credentials
-      const config = await loadSyncConfig();
-      
-      if (!config?.mal?.clientId) {
-        setMessage("Missing credentials");
-        toast.error("Configuration Error", {
-          description: "Client ID not found. Please configure credentials first.",
-        });
-        setTimeout(() => {
-          router.replace("/(tabs)/config");
-        }, 2000);
-        return;
-      }
-
-      // Get the PKCE code verifier that was saved before starting auth
-      const { getPKCEVerifier, clearPKCEVerifier } = await import("~/lib/sync/config");
-      const codeVerifier = await getPKCEVerifier();
-      
-      console.log("[Auth Callback] Code verifier retrieved:", codeVerifier ? "YES" : "NO");
-      
-      if (!codeVerifier) {
-        console.log("[Auth Callback] PKCE verifier not found in storage");
-        setMessage("Missing PKCE verifier");
-        toast.error("Authentication Error", {
-          description: "PKCE verifier not found. Please try connecting again.",
-        });
-        setTimeout(() => {
-          router.replace("/(tabs)/config");
-        }, 2000);
-        return;
-      }
-      
-      console.log("[Auth Callback] Starting token exchange...");
-      console.log("[Auth Callback] Client ID:", config.mal.clientId);
-      console.log("[Auth Callback] Has Client Secret:", !!config.mal.clientSecret);
-      
-      setMessage("Exchanging authorization code...");
-      
-      const tokenResponse = await exchangeCodeForToken(
-        params.code,
-        codeVerifier,
-        config.mal.clientId,
-        config.mal.clientSecret || ""
-      );
-      
-      console.log("[Auth Callback] Token exchange successful");
+      console.log("[Auth Callback] Tokens received successfully");
 
       setMessage("Saving tokens...");
       
-      // Save tokens FIRST before calling getUserInfo
+      // Save tokens
+      const expiresIn = parseInt(params.expires_in, 10);
       await updateMALTokens(
-        tokenResponse.access_token,
-        tokenResponse.refresh_token,
-        tokenResponse.expires_in,
+        params.access_token,
+        params.refresh_token,
+        expiresIn,
         undefined // username will be updated after getting user info
       );
 
@@ -118,14 +76,14 @@ export default function AuthCallbackScreen() {
 
       // Update config with username
       await updateMALTokens(
-        tokenResponse.access_token,
-        tokenResponse.refresh_token,
-        tokenResponse.expires_in,
+        params.access_token,
+        params.refresh_token,
+        expiresIn,
         userInfo.name
       );
 
-      // Clear the PKCE verifier from storage
-      await clearPKCEVerifier();
+      // Clear the auth state from storage
+      await clearAuthState();
 
       setMessage("Success!");
       
@@ -137,8 +95,8 @@ export default function AuthCallbackScreen() {
         router.replace("/(tabs)/config");
       }, 1500);
     } catch (error: any) {
-      console.log("[Auth Callback] ❌ ERROR:", error);
-      console.log("[Auth Callback] ❌ Error details:", {
+      console.log("[Auth Callback] ERROR:", error);
+      console.log("[Auth Callback] Error details:", {
         message: error.message,
         stack: error.stack,
         response: error.response?.data,

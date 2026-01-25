@@ -3,93 +3,52 @@ import {
   View,
   ScrollView,
   ActivityIndicator,
-  TextInput,
-  Linking,
   Alert,
 } from "react-native";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { toast } from "sonner-native";
 import { useSyncStatus, useManualSync } from "~/lib/sync/hooks";
-import {
-  updateClientCredentials,
-  clearSyncConfig,
-  savePKCEVerifier,
-} from "~/lib/sync/config";
-import {
-  generatePKCE,
-  initiateMALAuth,
-} from "~/lib/sync/mal-client";
-import { PKCEChallenge } from "~/lib/sync/types";
+import { clearSyncConfig } from "~/lib/sync/config";
+import { initiateMALAuth, checkBackendStatus } from "~/lib/sync/mal-client";
 
 export default function ConfigScreen() {
   const { config, authenticated, loading: statusLoading, reload } = useSyncStatus();
   const { syncing, result, syncHistory, syncLibrary, syncAll } = useManualSync();
 
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [saving, setSaving] = useState(false);
   const [authenticating, setAuthenticating] = useState(false);
-  const [pkceChallenge, setPkceChallenge] = useState<PKCEChallenge | null>(null);
+  const [backendReady, setBackendReady] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (config?.mal) {
-      setClientId(config.mal.clientId || "");
-      setClientSecret(config.mal.clientSecret || "");
-    }
-  }, [config]);
+    checkBackend();
+  }, []);
 
-  const handleSaveCredentials = async () => {
-    if (!clientId.trim()) {
-      toast.error("Client ID Required", {
-        description: "Please enter your MyAnimeList Client ID",
-      });
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await updateClientCredentials(clientId.trim(), clientSecret.trim());
-      toast.success("Credentials Saved", {
-        description: "You can now connect to MyAnimeList",
-      });
-      reload();
-    } catch (error: any) {
-      toast.error("Failed to Save", {
-        description: error.message,
-      });
-    } finally {
-      setSaving(false);
+  const checkBackend = async () => {
+    const status = await checkBackendStatus();
+    setBackendReady(status.configured);
+    if (!status.configured) {
+      console.log("[Config] Backend status:", status.message);
     }
   };
 
   const handleConnectMAL = async () => {
-    if (!clientId.trim()) {
-      toast.error("Client ID Required", {
-        description: "Please enter and save your Client ID first",
+    if (!backendReady) {
+      toast.error("Backend Not Ready", {
+        description: "The Kujira backend is not configured for MAL authentication",
       });
       return;
     }
 
     setAuthenticating(true);
     try {
-      // Generate PKCE challenge
-      const pkce = await generatePKCE();
-      setPkceChallenge(pkce);
+      console.log("[Config] Starting MAL authentication via backend...");
 
-      // Save the code verifier for later use in the callback
-      await savePKCEVerifier(pkce.codeVerifier);
-
-      console.log("[Config] PKCE verifier saved, opening browser...");
-
-      // Initiate OAuth flow
-      // The browser will redirect to /auth-callback which handles the rest
-      const authResult = await initiateMALAuth(clientId.trim(), pkce);
+      // Initiate OAuth flow - backend handles everything
+      const authResult = await initiateMALAuth();
 
       console.log("[Config] Auth result:", authResult.type);
 
-      // Note: If using WebBrowser, the callback is handled by auth-callback.tsx
-      // We don't need to do anything here except reload the config after
+      // The callback is handled by auth-callback.tsx
       if (authResult.type === "dismiss" || authResult.type === "cancel") {
         toast.info("Authentication Cancelled");
       }
@@ -99,7 +58,7 @@ export default function ConfigScreen() {
     } catch (error: any) {
       console.log("[Config] MAL auth error:", error);
       toast.error("Authentication Failed", {
-        description: error.message || "Please check your credentials",
+        description: error.message || "Please try again",
       });
     } finally {
       setAuthenticating(false);
@@ -180,10 +139,6 @@ export default function ConfigScreen() {
     }
   };
 
-  const openMALDeveloperPortal = () => {
-    Linking.openURL("https://myanimelist.net/apiconfig");
-  };
-
   if (statusLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-background">
@@ -226,67 +181,32 @@ export default function ConfigScreen() {
         )}
       </View>
 
-      {/* Credentials Section */}
-      <View className="bg-card p-4 rounded-lg mb-4 border border-border">
-        <Text className="text-lg font-semibold text-foreground mb-2">
-          MyAnimeList Credentials
-        </Text>
-        <Text className="text-sm text-muted-foreground mb-3">
-          Enter your MAL API credentials. Don't have one?{" "}
-          <Text
-            className="text-primary underline"
-            onPress={openMALDeveloperPortal}
-          >
-            Create MAL App
+      {/* Backend Status */}
+      {backendReady === false && (
+        <View className="bg-red-500/20 p-4 rounded-lg mb-4 border border-red-500/30">
+          <Text className="text-red-600 dark:text-red-400 font-medium mb-1">
+            Backend Not Configured
           </Text>
-        </Text>
-
-        <Text className="text-sm font-medium text-foreground mb-1">
-          Client ID
-        </Text>
-        <TextInput
-          className="bg-background border border-border rounded-md px-3 py-2 mb-3 text-foreground"
-          value={clientId}
-          onChangeText={setClientId}
-          placeholder="Enter Client ID"
-          placeholderTextColor="#999"
-          autoCapitalize="none"
-        />
-
-        <Text className="text-sm font-medium text-foreground mb-1">
-          Client Secret (Optional)
-        </Text>
-        <TextInput
-          className="bg-background border border-border rounded-md px-3 py-2 mb-3 text-foreground"
-          value={clientSecret}
-          onChangeText={setClientSecret}
-          placeholder="Enter Client Secret (optional)"
-          placeholderTextColor="#999"
-          autoCapitalize="none"
-          secureTextEntry
-        />
-
-        <Button
-          onPress={handleSaveCredentials}
-          disabled={saving || !clientId.trim()}
-        >
-          {saving ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text>Save Credentials</Text>
-          )}
-        </Button>
-      </View>
+          <Text className="text-sm text-red-600 dark:text-red-400">
+            The Kujira backend needs to be configured with MAL credentials.
+            Contact the app administrator.
+          </Text>
+        </View>
+      )}
 
       {/* Connection Actions */}
       {!authenticated ? (
         <View className="bg-card p-4 rounded-lg mb-4 border border-border">
-          <Text className="text-lg font-semibold text-foreground mb-3">
+          <Text className="text-lg font-semibold text-foreground mb-2">
             Connect Account
+          </Text>
+          <Text className="text-sm text-muted-foreground mb-3">
+            Connect your MyAnimeList account to sync your watch history and library.
+            No API credentials needed - Kujira handles everything!
           </Text>
           <Button
             onPress={handleConnectMAL}
-            disabled={authenticating || !clientId.trim()}
+            disabled={authenticating || backendReady === false}
           >
             {authenticating ? (
               <ActivityIndicator color="white" />

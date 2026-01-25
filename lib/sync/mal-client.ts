@@ -1,45 +1,20 @@
-import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
-import * as Crypto from "expo-crypto";
 import axios, { AxiosInstance } from "axios";
 import {
   MALAnime,
   MALUser,
   MALSearchResponse,
   MALAnimeDetailsResponse,
-  OAuth2TokenResponse,
-  PKCEChallenge,
   MALStatus,
+  AuthInitResponse,
+  KUJIRA_BACKEND_URL,
 } from "./types";
-import { getMALConfig, updateMALTokens } from "./config";
+import { getMALConfig, updateMALTokens, refreshTokensViaBackend, saveAuthState } from "./config";
 
 // Important: This is required for web browser to close properly after auth
 WebBrowser.maybeCompleteAuthSession();
 
-const MAL_AUTH_URL = "https://myanimelist.net/v1/oauth2/authorize";
-const MAL_TOKEN_URL = "https://myanimelist.net/v1/oauth2/token";
 const MAL_API_BASE = "https://api.myanimelist.net/v2";
-
-/**
- * Generate PKCE code verifier and challenge
- */
-export async function generatePKCE(): Promise<PKCEChallenge> {
-  const randomBytes = await Crypto.getRandomBytesAsync(32);
-  const codeVerifier = base64URLEncode(randomBytes);
-  
-  // For MAL, we use plain challenge (not SHA256)
-  const codeChallenge = codeVerifier;
-
-  return { codeVerifier, codeChallenge };
-}
-
-function base64URLEncode(buffer: Uint8Array): string {
-  const base64 = btoa(String.fromCharCode(...buffer));
-  return base64
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
 
 /**
  * Create axios instance with MAL authentication
@@ -57,8 +32,8 @@ async function createAuthenticatedClient(): Promise<AxiosInstance> {
   const fiveMinutes = 5 * 60 * 1000;
 
   if (expiry.getTime() - now.getTime() < fiveMinutes) {
-    // Token expired or about to expire, refresh it
-    await refreshAccessToken();
+    // Token expired or about to expire, refresh it via backend
+    await refreshTokensViaBackend();
     const refreshedConfig = await getMALConfig();
     if (!refreshedConfig) {
       throw new Error("Failed to refresh token");
@@ -76,137 +51,49 @@ async function createAuthenticatedClient(): Promise<AxiosInstance> {
 }
 
 /**
- * Initiate OAuth2 authentication flow
+ * Initiate OAuth2 authentication flow via Kujira backend
+ * The backend handles PKCE and client credentials
  */
-export async function initiateMALAuth(
-  clientId: string,
-  pkce: PKCEChallenge
-): Promise<WebBrowser.WebBrowserAuthSessionResult> {
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: "kujira-app",
-    path: "auth-callback",
-  });
-
-  console.log("[MAL Auth] Redirect URI:", redirectUri);
-  console.log("[MAL Auth] Code Challenge:", pkce.codeChallenge);
-
-  const authUrl = `${MAL_AUTH_URL}?` +
-    `client_id=${clientId}` +
-    `&response_type=code` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&code_challenge=${pkce.codeChallenge}` +
-    `&code_challenge_method=plain` +
-    `&state=${Math.random().toString(36)}`;
-
-  const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-
-  return result;
-}
-
-/**
- * Exchange authorization code for access token
- */
-export async function exchangeCodeForToken(
-  code: string,
-  codeVerifier: string,
-  clientId: string,
-  clientSecret: string
-): Promise<OAuth2TokenResponse> {
+export async function initiateMALAuth(): Promise<WebBrowser.WebBrowserAuthSessionResult> {
   try {
-    const redirectUri = AuthSession.makeRedirectUri({
-      scheme: "kujira-app",
-      path: "auth-callback",
-    });
-
-    console.log("[MAL Auth] Exchange params:");
-    console.log("  - Redirect URI:", redirectUri);
-    console.log("  - Code (first 10 chars):", code.substring(0, 10));
-    console.log("  - Code Verifier (first 10 chars):", codeVerifier.substring(0, 10));
-    console.log("  - Client ID:", clientId);
-    console.log("  - Has Client Secret:", !!clientSecret);
-
-    const params = new URLSearchParams();
-    params.append("client_id", clientId);
-    if (clientSecret) {
-      params.append("client_secret", clientSecret);
-    }
-    params.append("grant_type", "authorization_code");
-    params.append("code", code);
-    params.append("redirect_uri", redirectUri);
-    params.append("code_verifier", codeVerifier);
-
-    console.log("[MAL Auth] Exchanging code for token...");
-    console.log("[MAL Auth] POST to:", MAL_TOKEN_URL);
-
-    const response = await axios.post<OAuth2TokenResponse>(
-      MAL_TOKEN_URL,
-      params.toString(),
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
+    // Get auth URL from backend
+    console.log("[MAL Auth] Requesting auth URL from backend...");
+    
+    const response = await axios.get<AuthInitResponse>(
+      `${KUJIRA_BACKEND_URL}/auth/mal/init?client=app`
     );
 
-    console.log("[MAL Auth] Token exchange successful");
-    return response.data;
-  } catch (error: any) {
-    console.log("[MAL Auth] ❌ Token exchange failed:");
-    console.log("  - Status:", error.response?.status);
-    console.log("  - Data:", error.response?.data);
-    console.log("  - Headers:", error.response?.headers);
-    console.log("  - Message:", error.message);
-    console.log("  - Full error:", JSON.stringify(error.response?.data, null, 2));
+    const { authUrl, state } = response.data;
     
-    // Throw a more detailed error
-    const errorMsg = error.response?.data?.error_description || 
-                     error.response?.data?.error || 
-                     error.message || 
-                     "Unknown error";
-    throw new Error(`Token exchange failed: ${errorMsg}`);
+    console.log("[MAL Auth] Got auth URL, state:", state);
+
+    // Save state for validation later (optional, backend handles CSRF)
+    await saveAuthState(state);
+
+    // Open browser for user to authenticate
+    // The callback will be handled by the backend, which will redirect to kujira-app://auth-callback
+    const result = await WebBrowser.openAuthSessionAsync(
+      authUrl,
+      "kujira-app://auth-callback"
+    );
+
+    return result;
+  } catch (error: any) {
+    console.log("[MAL Auth] Failed to initiate auth:", error.response?.data || error.message);
+    throw new Error(error.response?.data?.error || "Failed to initiate authentication");
   }
 }
 
 /**
- * Refresh access token using refresh token
+ * Check if backend MAL OAuth is configured
  */
-export async function refreshAccessToken(): Promise<void> {
+export async function checkBackendStatus(): Promise<{ configured: boolean; message: string }> {
   try {
-    const config = await getMALConfig();
-    
-    if (!config || !config.refreshToken) {
-      throw new Error("No refresh token available");
-    }
-
-    const params = new URLSearchParams();
-    params.append("client_id", config.clientId);
-    params.append("client_secret", config.clientSecret);
-    params.append("grant_type", "refresh_token");
-    params.append("refresh_token", config.refreshToken);
-
-    console.log("[MAL Auth] Refreshing access token...");
-
-    const response = await axios.post<OAuth2TokenResponse>(
-      MAL_TOKEN_URL,
-      params.toString(),
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
-    );
-
-    await updateMALTokens(
-      response.data.access_token,
-      response.data.refresh_token,
-      response.data.expires_in,
-      config.username
-    );
-
-    console.log("[MAL Auth] Token refreshed successfully");
+    const response = await axios.get(`${KUJIRA_BACKEND_URL}/auth/mal/status`);
+    return response.data;
   } catch (error: any) {
-    console.log("[MAL Auth] ❌ Token refresh failed:", error.response?.data || error.message);
-    throw new Error("Failed to refresh access token");
+    console.log("[MAL Auth] Failed to check backend status:", error.message);
+    return { configured: false, message: "Backend not reachable" };
   }
 }
 
@@ -224,7 +111,7 @@ export async function getUserInfo(): Promise<MALUser> {
 
     return response.data;
   } catch (error: any) {
-    console.log("[MAL API] ❌ Get user info failed:", error.response?.data || error.message);
+    console.log("[MAL API] Get user info failed:", error.response?.data || error.message);
     throw new Error("Failed to get user info");
   }
 }
@@ -246,7 +133,7 @@ export async function searchAnime(title: string, limit: number = 10): Promise<MA
 
     return response.data.data.map((item) => item.node);
   } catch (error: any) {
-    console.log("[MAL API] ❌ Search anime failed:", error.response?.data || error.message);
+    console.log("[MAL API] Search anime failed:", error.response?.data || error.message);
     throw new Error("Failed to search anime");
   }
 }
@@ -265,7 +152,7 @@ export async function getAnimeDetails(animeId: number): Promise<MALAnimeDetailsR
 
     return response.data;
   } catch (error: any) {
-    console.log("[MAL API] ❌ Get anime details failed:", error.response?.data || error.message);
+    console.log("[MAL API] Get anime details failed:", error.response?.data || error.message);
     throw new Error("Failed to get anime details");
   }
 }
@@ -297,7 +184,7 @@ export async function updateAnimeListStatus(
       numEpisodesWatched,
     });
   } catch (error: any) {
-    console.log("[MAL API] ❌ Update anime list failed:", error.response?.data || error.message);
+    console.log("[MAL API] Update anime list failed:", error.response?.data || error.message);
     throw new Error("Failed to update anime list");
   }
 }
@@ -312,7 +199,7 @@ export async function deleteAnimeFromList(animeId: number): Promise<void> {
 
     console.log(`[MAL API] Deleted anime ${animeId} from list`);
   } catch (error: any) {
-    console.log("[MAL API] ❌ Delete anime failed:", error.response?.data || error.message);
+    console.log("[MAL API] Delete anime failed:", error.response?.data || error.message);
     throw new Error("Failed to delete anime from list");
   }
 }

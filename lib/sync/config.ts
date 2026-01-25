@@ -1,41 +1,42 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { SyncConfig, MALConfig } from "./types";
+import { SyncConfig, MALConfig, KUJIRA_BACKEND_URL } from "./types";
+import axios from "axios";
 
 const SYNC_CONFIG_KEY = "@kujira/sync_config";
-const PKCE_VERIFIER_KEY = "@kujira/pkce_verifier";
+const AUTH_STATE_KEY = "@kujira/auth_state";
 
 /**
- * Save PKCE code verifier temporarily during OAuth flow
+ * Save auth state temporarily during OAuth flow
  */
-export async function savePKCEVerifier(verifier: string): Promise<void> {
+export async function saveAuthState(state: string): Promise<void> {
   try {
-    await AsyncStorage.setItem(PKCE_VERIFIER_KEY, verifier);
+    await AsyncStorage.setItem(AUTH_STATE_KEY, state);
   } catch (error) {
-    console.log("[Sync Config] Failed to save PKCE verifier:", error);
+    console.log("[Sync Config] Failed to save auth state:", error);
     throw error;
   }
 }
 
 /**
- * Get PKCE code verifier from temporary storage
+ * Get auth state from temporary storage
  */
-export async function getPKCEVerifier(): Promise<string | null> {
+export async function getAuthState(): Promise<string | null> {
   try {
-    return await AsyncStorage.getItem(PKCE_VERIFIER_KEY);
+    return await AsyncStorage.getItem(AUTH_STATE_KEY);
   } catch (error) {
-    console.log("[Sync Config] Failed to get PKCE verifier:", error);
+    console.log("[Sync Config] Failed to get auth state:", error);
     return null;
   }
 }
 
 /**
- * Clear PKCE code verifier after OAuth flow completes
+ * Clear auth state after OAuth flow completes
  */
-export async function clearPKCEVerifier(): Promise<void> {
+export async function clearAuthState(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(PKCE_VERIFIER_KEY);
+    await AsyncStorage.removeItem(AUTH_STATE_KEY);
   } catch (error) {
-    console.log("[Sync Config] Failed to clear PKCE verifier:", error);
+    console.log("[Sync Config] Failed to clear auth state:", error);
   }
 }
 
@@ -86,12 +87,10 @@ export async function updateMALTokens(
     const updatedConfig: SyncConfig = {
       provider: "myanimelist",
       mal: {
-        clientId: config?.mal?.clientId || "",
-        clientSecret: config?.mal?.clientSecret || "",
         accessToken,
         refreshToken,
         tokenExpiry: expiryDate.toISOString(),
-        username,
+        username: username || config?.mal?.username,
       },
       lastSyncAt: config?.lastSyncAt,
       autoSync: config?.autoSync ?? true,
@@ -105,32 +104,34 @@ export async function updateMALTokens(
 }
 
 /**
- * Update client credentials (Client ID and Secret)
+ * Refresh tokens via Kujira backend
  */
-export async function updateClientCredentials(
-  clientId: string,
-  clientSecret: string
-): Promise<void> {
+export async function refreshTokensViaBackend(): Promise<void> {
   try {
     const config = await loadSyncConfig();
     
-    const updatedConfig: SyncConfig = {
-      provider: "myanimelist",
-      mal: {
-        clientId,
-        clientSecret,
-        accessToken: config?.mal?.accessToken || "",
-        refreshToken: config?.mal?.refreshToken || "",
-        tokenExpiry: config?.mal?.tokenExpiry || "",
-        username: config?.mal?.username,
-      },
-      lastSyncAt: config?.lastSyncAt,
-      autoSync: config?.autoSync ?? true,
-    };
+    if (!config?.mal?.refreshToken) {
+      throw new Error("No refresh token available");
+    }
 
-    await saveSyncConfig(updatedConfig);
+    console.log("[Sync Config] Refreshing tokens via backend...");
+
+    const response = await axios.post(
+      `${KUJIRA_BACKEND_URL}/auth/mal/refresh`,
+      { refresh_token: config.mal.refreshToken },
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    await updateMALTokens(
+      response.data.access_token,
+      response.data.refresh_token,
+      response.data.expires_in,
+      config.mal.username
+    );
+
+    console.log("[Sync Config] Tokens refreshed successfully");
   } catch (error) {
-    console.log("[Sync Config] Failed to update credentials:", error);
+    console.log("[Sync Config] Failed to refresh tokens:", error);
     throw error;
   }
 }
