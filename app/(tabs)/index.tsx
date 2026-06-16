@@ -2,14 +2,16 @@ import * as React from "react";
 import {
     View,
     FlatList,
-    ActivityIndicator,
     ImageBackground,
     Pressable,
     TouchableOpacity,
+    Animated,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Card, CardTitle } from "~/components/ui/card";
 import { Text } from "~/components/ui/text";
-import { Info } from "lucide-react-native";
+import { Button } from "~/components/ui/button";
+import { Info, WifiOff } from "~/lib/icons/lucide";
 import { useRouter } from "expo-router";
 import { ProviderSelector, Provider } from "~/components/ProviderSelector";
 import { getCache, setCache } from "~/lib/cache";
@@ -27,6 +29,36 @@ interface Anime {
     url: string;
     img: string;
     episode: string;
+}
+
+function SkeletonPoster() {
+    const opacity = React.useRef(new Animated.Value(0.4)).current;
+
+    React.useEffect(() => {
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(opacity, {
+                    toValue: 1,
+                    duration: 700,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(opacity, {
+                    toValue: 0.4,
+                    duration: 700,
+                    useNativeDriver: true,
+                }),
+            ]),
+        );
+        loop.start();
+        return () => loop.stop();
+    }, [opacity]);
+
+    return (
+        <Animated.View
+            style={{ opacity }}
+            className="w-full aspect-[2/3] rounded-2xl bg-secondary"
+        />
+    );
 }
 
 export default function Screen() {
@@ -101,36 +133,60 @@ export default function Screen() {
     const renderItem = ({ item }: { item: Anime }) => (
         <Pressable
             onPress={() => handleCardPress(item)}
-            className="flex-1/2 p-1"
+            className="flex-1 p-1.5 active:opacity-80"
         >
             <Card className="w-full rounded-2xl overflow-hidden border-0">
                 <ImageBackground
                     source={{ uri: item.img }}
-                    className="w-full h-64 justify-end"
+                    className="w-full aspect-[2/3] justify-end bg-secondary"
                 >
-                    <View className="bg-black/60 p-3">
-                        <CardTitle className="text-white text-base font-bold mb-1">
-                            {item.title}
-                        </CardTitle>
-                        <Text className="text-white/80 text-sm">
+                    {/* Episode badge */}
+                    <View className="absolute top-2 left-2 bg-primary px-2 py-1 rounded-md">
+                        <Text className="text-primary-foreground text-xs font-bold">
                             {item.episode}
                         </Text>
                     </View>
+
+                    {/* Info button */}
                     <TouchableOpacity
-                        className="absolute top-2 right-2 bg-secondary dark:bg-secondary-foreground p-2 rounded-full"
+                        className="absolute top-2 right-2 bg-black/60 border border-white/20 p-2 rounded-full"
                         onPress={(e) => {
                             e.stopPropagation(); // Prevent card press from firing
                             handleInfoPress(item);
                         }}
                     >
-                        <Info
-                            size={20}
-                            className="text-secondary-foreground dark:text-primary"
-                        />
+                        <Info size={18} color="white" />
                     </TouchableOpacity>
+
+                    {/* Bottom gradient + title */}
+                    <LinearGradient
+                        colors={["transparent", "rgba(0,0,0,0.85)"]}
+                        style={{
+                            paddingHorizontal: 12,
+                            paddingTop: 40,
+                            paddingBottom: 12,
+                        }}
+                    >
+                        <CardTitle
+                            numberOfLines={2}
+                            className="text-white text-sm font-bold leading-tight"
+                        >
+                            {item.title}
+                        </CardTitle>
+                    </LinearGradient>
                 </ImageBackground>
             </Card>
         </Pressable>
+    );
+
+    const renderSkeleton = () => (
+        <View className="flex-row flex-wrap">
+            {Array.from({ length: 8 }).map((_, i) => (
+                <View key={i} className="w-1/2 p-1.5">
+                    <SkeletonPoster />
+                </View>
+            ))}
+        </View>
     );
 
     return (
@@ -141,12 +197,16 @@ export default function Screen() {
             />
 
             {loading ? (
-                <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" />
-                </View>
+                renderSkeleton()
             ) : error ? (
-                <View className="flex-1 justify-center items-center">
-                    <Text>{error}</Text>
+                <View className="flex-1 justify-center items-center gap-4 px-8">
+                    <WifiOff size={48} className="text-muted-foreground" />
+                    <Text className="text-muted-foreground text-center">
+                        {error}
+                    </Text>
+                    <Button onPress={() => setProvider((p) => p)}>
+                        <Text>Reintentar</Text>
+                    </Button>
                 </View>
             ) : (
                 <FlatList
@@ -155,8 +215,8 @@ export default function Screen() {
                     keyExtractor={(item, index) =>
                         `${provider}-${item.title}-${index}`
                     }
-                    contentContainerClassName="gap-2"
-                    numColumns={1}
+                    contentContainerClassName="gap-1 pt-2 pb-4"
+                    numColumns={2}
                     key={provider}
                 />
             )}

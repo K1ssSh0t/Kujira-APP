@@ -7,11 +7,22 @@ import {
     Platform,
     Modal,
     TouchableOpacity,
+    ImageBackground,
+    Pressable,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
-import { Server, X } from "lucide-react-native";
+import { Card } from "~/components/ui/card";
+import { X } from "lucide-react-native";
+import {
+    Server,
+    ChevronRight,
+    Monitor,
+    ExternalLink,
+    Info,
+} from "~/lib/icons/lucide";
 import { VideoView, useVideoPlayer, VideoSource } from "expo-video";
 import * as IntentLauncher from "expo-intent-launcher";
 import { extractStreamTapeUrl } from "~/lib/extractors/streamtape";
@@ -35,12 +46,24 @@ interface EpisodeDetails {
 const BASE_API_URL = "https://kujira.unusualoticramo.workers.dev";
 
 export default function EpisodeScreen() {
+    const router = useRouter();
     const { url, provider, animeTitle, animeImage } = useLocalSearchParams<{
         url: string;
         provider: string;
         animeTitle?: string;
         animeImage?: string;
     }>();
+
+    const goToAnimeDetails = () => {
+        if (!url) return;
+        const animeSlug = url
+            .replace(/\/episode\//, "/anime/")
+            .replace(/-\d+$/, "");
+        router.push({
+            pathname: "/anime-details",
+            params: { url: animeSlug, provider },
+        });
+    };
     const [details, setDetails] = React.useState<EpisodeDetails | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
@@ -247,33 +270,96 @@ export default function EpisodeScreen() {
     }
 
     return (
-        <ScrollView className="flex-1 bg-background p-6">
-            <Text className="text-3xl font-bold text-foreground mb-6 text-center">
-                {details.title} - {details.numberEpisode}
-            </Text>
-            <View className="gap-y-4">
-                {details.servers.map((server) => {
-                    const validSources = [
-                        "streamtape",
-                        "voe",
-                        "YourUpload",
-                        "Stape",
-                    ];
-                    const isPressable = validSources.some((name) =>
-                        server.name.toLowerCase().includes(name.toLowerCase()),
-                    );
-                    return (
-                        <Button
-                            key={server.name}
-                            variant="outline"
-                            className="w-full"
-                            onPress={() => handleServerPress(server)}
-                            disabled={!isPressable}
+        <ScrollView className="flex-1 bg-background">
+            {/* Episode hero */}
+            <View className="w-full h-56">
+                <ImageBackground
+                    source={animeImage ? { uri: animeImage } : undefined}
+                    className="w-full h-full justify-end bg-secondary"
+                >
+                    <LinearGradient
+                        colors={["transparent", "rgba(0,0,0,0.85)"]}
+                        style={{
+                            paddingHorizontal: 24,
+                            paddingTop: 60,
+                            paddingBottom: 20,
+                        }}
+                    >
+                        {animeTitle && (
+                            <Text
+                                className="text-white/80 text-sm font-medium"
+                                numberOfLines={1}
+                            >
+                                {animeTitle}
+                            </Text>
+                        )}
+                        <Text
+                            className="text-white text-2xl font-bold leading-tight"
+                            numberOfLines={2}
                         >
-                            <Text>{server.name}</Text>
-                        </Button>
-                    );
-                })}
+                            {details.title} - {details.numberEpisode}
+                        </Text>
+                    </LinearGradient>
+                </ImageBackground>
+            </View>
+
+            <View className="p-6">
+                {/* Go to anime details */}
+                <Button
+                    variant="outline"
+                    className="w-full mb-6 flex-row gap-2"
+                    onPress={goToAnimeDetails}
+                >
+                    <Info size={18} className="text-foreground" />
+                    <Text>Ver anime</Text>
+                </Button>
+
+                <Text className="text-lg font-semibold text-foreground mb-3">
+                    Servidores disponibles
+                </Text>
+                <View className="gap-y-2">
+                    {details.servers.map((server) => {
+                        const validSources = [
+                            "streamtape",
+                            "voe",
+                            "YourUpload",
+                            "Stape",
+                        ];
+                        const isPressable = validSources.some((name) =>
+                            server.name
+                                .toLowerCase()
+                                .includes(name.toLowerCase()),
+                        );
+                        return (
+                            <Pressable
+                                key={server.name}
+                                onPress={() => handleServerPress(server)}
+                                disabled={!isPressable}
+                                className={
+                                    isPressable
+                                        ? "active:opacity-70"
+                                        : "opacity-40"
+                                }
+                            >
+                                <Card className="flex-row items-center p-4 rounded-xl border-border">
+                                    <Server
+                                        size={20}
+                                        className="text-muted-foreground"
+                                    />
+                                    <Text className="flex-1 ml-3 text-foreground font-medium">
+                                        {server.name}
+                                    </Text>
+                                    {isPressable && (
+                                        <ChevronRight
+                                            size={20}
+                                            className="text-muted-foreground"
+                                        />
+                                    )}
+                                </Card>
+                            </Pressable>
+                        );
+                    })}
+                </View>
             </View>
 
             <Modal
@@ -283,18 +369,33 @@ export default function EpisodeScreen() {
                 animationType="fade"
             >
                 <View className="flex-1 justify-center items-center bg-black/50 p-4">
-                    <View className="bg-card p-6 rounded-lg w-full max-w-sm">
-                        <Text className="text-lg font-bold text-foreground text-center mb-4">
+                    <View className="bg-card p-6 rounded-2xl w-full max-w-sm border border-border">
+                        <Text className="text-lg font-bold text-foreground text-center">
                             Seleccionar reproductor
                         </Text>
+                        <Text className="text-sm text-muted-foreground text-center mb-5">
+                            ¿Cómo quieres ver este episodio?
+                        </Text>
                         <View className="gap-y-2">
-                            <Button onPress={handleInternalPlay}>
+                            <Button
+                                onPress={handleInternalPlay}
+                                className="flex-row gap-2"
+                            >
+                                <Monitor
+                                    size={18}
+                                    className="text-primary-foreground"
+                                />
                                 <Text>Interno</Text>
                             </Button>
                             <Button
                                 onPress={handleExternalPlay}
                                 variant="secondary"
+                                className="flex-row gap-2"
                             >
+                                <ExternalLink
+                                    size={18}
+                                    className="text-secondary-foreground"
+                                />
                                 <Text>Externo</Text>
                             </Button>
                         </View>
@@ -327,14 +428,14 @@ export default function EpisodeScreen() {
                         />
                     )}
                     <TouchableOpacity
-                        className="absolute top-10 right-5 z-10"
+                        className="absolute top-10 right-5 z-10 bg-black/50 rounded-full p-2"
                         onPress={() => {
                             setVideoPlayerVisible(false);
                             setVideoSource(null);
                             player.pause();
                         }}
                     >
-                        <X size={30} color="white" />
+                        <X size={28} color="white" />
                     </TouchableOpacity>
                 </View>
             </Modal>
