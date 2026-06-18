@@ -27,6 +27,7 @@ import Video, { VideoRef } from "react-native-video";
 import * as IntentLauncher from "expo-intent-launcher";
 import { findExtractor, ExtractorResult } from "~/lib/extractors";
 import { getProxiedUrl } from "~/modules/video-proxy";
+import { toast } from "sonner-native";
 import axios from "axios";
 import { addToHistory } from "~/lib/history";
 import { syncEpisodeToMAL } from "~/lib/sync/service";
@@ -185,11 +186,26 @@ export default function EpisodeScreen() {
         if (!selectedServer) return;
         await addCurrentEpisodeToHistory();
 
-        const { url, referer } = await resolveSource(selectedServer);
-        setVideoSource({ uri: url, headers: { Referer: referer } });
-        setVideoPlayerVisible(true);
+        const server = selectedServer;
         setOptionModalVisible(false);
         setSelectedServer(null);
+
+        try {
+            const { url, referer } = await resolveSource(server);
+            if (!url) {
+                toast.error("No se pudo obtener el video", {
+                    description: `Servidor: ${server.name}`,
+                });
+                return;
+            }
+            setVideoSource({ uri: url, headers: { Referer: referer } });
+            setVideoPlayerVisible(true);
+        } catch (e) {
+            console.error("[InternalPlay] error", e);
+            toast.error("Error al cargar el video", {
+                description: server.name,
+            });
+        }
     };
 
     const handleExternalPlay = async () => {
@@ -200,14 +216,28 @@ export default function EpisodeScreen() {
         setOptionModalVisible(false);
         setSelectedServer(null);
 
-        const { url, referer } = await resolveSource(server);
-
-        // Reproductores externos (MPV/VLC) no pueden mandar el header Referer que
-        // exigen algunos CDN (Mp4Upload, Uqload, YourUpload), por lo que el video
-        // abre y se cierra al instante. Lo enrutamos por un proxy HTTP local que
-        // inyecta el Referer; el player apunta a 127.0.0.1 y nunca ve el CDN directo.
-        // Si el proxy no esta disponible, getProxiedUrl devuelve la URL original.
-        const playUrl = await getProxiedUrl(url, referer);
+        let url: string;
+        let referer: string;
+        let playUrl: string;
+        try {
+            ({ url, referer } = await resolveSource(server));
+            if (!url) {
+                toast.error("No se pudo obtener el video", {
+                    description: `Servidor: ${server.name}`,
+                });
+                return;
+            }
+            // Reproductores externos (MPV/VLC) no pueden mandar el header Referer que
+            // exigen algunos CDN (Mp4Upload, Uqload, YourUpload), por lo que el video
+            // abre y se cierra al instante. Lo enrutamos por un proxy HTTP local que
+            // inyecta el Referer; el player apunta a 127.0.0.1 y nunca ve el CDN directo.
+            // Si el proxy no esta disponible, getProxiedUrl devuelve la URL original.
+            playUrl = await getProxiedUrl(url, referer);
+        } catch (e) {
+            console.error("[ExternalPlay] error", e);
+            toast.error("Error al abrir el video", { description: server.name });
+            return;
+        }
 
         const openVideoUrl = () =>
             Linking.openURL(playUrl).catch(() =>
@@ -426,6 +456,12 @@ export default function EpisodeScreen() {
                             }}
                             onError={(e) => {
                                 console.error("[Video] error", e);
+                                toast.error("No se pudo reproducir el video", {
+                                    description:
+                                        "Prueba otro servidor o el modo externo",
+                                });
+                                setVideoPlayerVisible(false);
+                                setVideoSource(null);
                             }}
                         />
                     )}
