@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import { X, RotateCcw, RotateCw, SkipForward } from "lucide-react-native";
+import { X, SkipForward } from "lucide-react-native";
 import {
     Server,
     ChevronRight,
@@ -26,6 +26,7 @@ import {
 import { VideoView, useVideoPlayer, VideoSource } from "expo-video";
 import * as IntentLauncher from "expo-intent-launcher";
 import { findExtractor, ExtractorResult } from "~/lib/extractors";
+import { getProxiedUrl } from "~/modules/video-proxy";
 import axios from "axios";
 import { addToHistory } from "~/lib/history";
 import { syncEpisodeToMAL } from "~/lib/sync/service";
@@ -205,8 +206,15 @@ export default function EpisodeScreen() {
 
         const { url, referer } = await resolveSource(server);
 
+        // Reproductores externos (MPV/VLC) no pueden mandar el header Referer que
+        // exigen algunos CDN (Mp4Upload, Uqload, YourUpload), por lo que el video
+        // abre y se cierra al instante. Lo enrutamos por un proxy HTTP local que
+        // inyecta el Referer; el player apunta a 127.0.0.1 y nunca ve el CDN directo.
+        // Si el proxy no esta disponible, getProxiedUrl devuelve la URL original.
+        const playUrl = await getProxiedUrl(url, referer);
+
         const openVideoUrl = () =>
-            Linking.openURL(url).catch(() =>
+            Linking.openURL(playUrl).catch(() =>
                 Linking.openURL(server.url).catch(() => {}),
             );
 
@@ -214,12 +222,10 @@ export default function EpisodeScreen() {
             const title = `${animeTitle ?? ""} - Ep ${
                 details?.numberEpisode ?? ""
             }`.trim();
-            // Distintos players leen distintos extras para los headers HTTP, asi que
-            // los mandamos en todos los formatos conocidos para maximizar compatibilidad.
-            // Nota: VLC y MPV-android no aceptan headers por intent de forma fiable;
-            // esto ayuda sobre todo a MX Player y players que leen HTTP_HEADERS.
+            // Ademas del proxy, mandamos los headers en todos los formatos de extra
+            // conocidos por si el player los aprovecha (p.ej. MX Player).
             IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-                data: url,
+                data: playUrl,
                 type: "video/*",
                 extra: {
                     // Formato "Key: Value"
@@ -423,13 +429,7 @@ export default function EpisodeScreen() {
                         />
                     )}
                     {videoSource && (
-                        <View className="absolute bottom-20 self-center flex-row items-center gap-3 bg-black/50 rounded-full px-4 py-2">
-                            <TouchableOpacity
-                                className="p-2"
-                                onPress={() => seekBy(-10)}
-                            >
-                                <RotateCcw size={26} color="white" />
-                            </TouchableOpacity>
+                        <View className="absolute bottom-20 self-center flex-row items-center bg-black/50 rounded-full px-4 py-2">
                             <TouchableOpacity
                                 className="flex-row items-center gap-1 px-3 py-1"
                                 onPress={() => seekBy(85)}
@@ -438,12 +438,6 @@ export default function EpisodeScreen() {
                                 <Text className="text-white text-xs">
                                     Saltar intro
                                 </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                className="p-2"
-                                onPress={() => seekBy(10)}
-                            >
-                                <RotateCw size={26} color="white" />
                             </TouchableOpacity>
                         </View>
                     )}

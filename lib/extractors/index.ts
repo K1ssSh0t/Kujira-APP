@@ -34,23 +34,23 @@ const extractors: ExtractorEntry[] = [
     },
     {
         names: ['Uqload'],
-        fn: async (url) => {
-            const result = await extractUqloadUrl(url);
+        fn: async (url, referer) => {
+            const result = await extractUqloadUrl(url, referer);
             return result || null;
         },
     },
     {
         names: ['Mp4Upload', 'Mp4upload'],
-        fn: async (url) => {
-            const result = await extractMp4UploadUrl(url);
+        fn: async (url, referer) => {
+            const result = await extractMp4UploadUrl(url, referer);
             if (!result) return null;
             return result;
         },
     },
     {
         names: ['YourUpload', 'Yourupload'],
-        fn: async (url) => {
-            const result = await extractYourUploadUrl(url);
+        fn: async (url, referer) => {
+            const result = await extractYourUploadUrl(url, referer);
             if (!result) return null;
             return result;
         },

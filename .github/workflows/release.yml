@@ -23,8 +23,13 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      # El modulo nativo local en ./modules/video-proxy se auto-enlaza durante el
+      # prebuild (expo-modules-autolinking lo detecta via package.json > expo.autolinking).
       - name: Generate Android project
         run: bunx expo prebuild -p android --no-install
+
+      - name: Verify local native modules are linked
+        run: bunx expo-modules-autolinking search -p android
 
       - name: Setup Java
         uses: actions/setup-java@v4
