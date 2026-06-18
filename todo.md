@@ -1,4 +1,4 @@
 - [x] Mejoras en el diseño
-- [ ] Agregar mas proveedores de videos, para poder extraelos y passalor a mpv
+- [x] Agregar mas proveedores de videos, para poder extraelos y passalor a mpv
 - [ ] Ver si se va agregar un reproductor dentro de la app, que tegna ams que nada salto de timepo determinado
-- [ ]  Cechar eeeorres que no carga la lista de servidorres de lso espisodidso en animeflv, y en monos chinso no carga la lista de episidos en detalles del anime
+- [x]  Cechar eeeorres que no carga la lista de servidorres de lso espisodidso en animeflv, y en monos chinso no carga la lista de episidos en detalles del anime

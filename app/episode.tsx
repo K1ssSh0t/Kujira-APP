@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import { X } from "lucide-react-native";
+import { X, RotateCcw, RotateCw, SkipForward } from "lucide-react-native";
 import {
     Server,
     ChevronRight,
@@ -25,8 +25,7 @@ import {
 } from "~/lib/icons/lucide";
 import { VideoView, useVideoPlayer, VideoSource } from "expo-video";
 import * as IntentLauncher from "expo-intent-launcher";
-import { extractStreamTapeUrl } from "~/lib/extractors/streamtape";
-import { fetchMp4Link } from "~/lib/extractors/voe";
+import { findExtractor, ExtractorResult } from "~/lib/extractors";
 import axios from "axios";
 import { addToHistory } from "~/lib/history";
 import { syncEpisodeToMAL } from "~/lib/sync/service";
@@ -44,6 +43,11 @@ interface EpisodeDetails {
 }
 
 const BASE_API_URL = "https://kujira.unusualoticramo.workers.dev";
+
+// Mismo User-Agent que usan los extractores; algunos hosts (Mp4Upload) ademas del
+// Referer validan el UA para servir el video.
+const VIDEO_UA =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3";
 
 export default function EpisodeScreen() {
     const router = useRouter();
@@ -163,28 +167,29 @@ export default function EpisodeScreen() {
         }
     };
 
+    // Resuelve la URL directa del video usando el extractor del servidor (si existe).
+    // El Referer siempre es la URL embed del servidor.
+    const resolveSource = async (server: Server) => {
+        let url = server.source;
+        const extractor = findExtractor(server.name);
+        if (extractor) {
+            const result = await extractor.fn(server.url, server.url);
+            if (result) {
+                url =
+                    typeof result === "string"
+                        ? result
+                        : (result as ExtractorResult).url;
+            }
+        }
+        return { url, referer: server.url };
+    };
+
     const handleInternalPlay = async () => {
         if (!selectedServer) return;
         await addCurrentEpisodeToHistory();
 
-        let sourceUrl = selectedServer.source;
-        const headers = {
-            Referer: selectedServer.url,
-        };
-        if (
-            selectedServer.name === "Stape" ||
-            selectedServer.name === "Streamtape" ||
-            selectedServer.name === "StreamTape"
-        ) {
-            sourceUrl = await extractStreamTapeUrl(selectedServer.url);
-        }
-        if (selectedServer.name == "Voe" || selectedServer.name == "Voex") {
-            sourceUrl = (await fetchMp4Link(
-                selectedServer.url,
-                "https://voe.sx/",
-            )) as string;
-        }
-        setVideoSource({ uri: sourceUrl, headers });
+        const { url, referer } = await resolveSource(selectedServer);
+        setVideoSource({ uri: url, headers: { Referer: referer } });
         setVideoPlayerVisible(true);
         setOptionModalVisible(false);
         setSelectedServer(null);
@@ -195,54 +200,54 @@ export default function EpisodeScreen() {
         await addCurrentEpisodeToHistory();
 
         const server = selectedServer;
-        let sourceUrl = server.source;
         setOptionModalVisible(false);
         setSelectedServer(null);
 
-        if (Platform.OS === "android") {
-            const headersArray = Object.entries({
-                Referer: server.url,
-            }).map(([key, value]) => `${key}: ${value}`);
+        const { url, referer } = await resolveSource(server);
 
-            const extras = {
-                "android.intent.extra.HTTP_HEADERS": headersArray,
-            };
-            if (
-                server.name == "Stape" ||
-                server.name == "Streamtape" ||
-                server.name == "StreamTape"
-            ) {
-                sourceUrl = await extractStreamTapeUrl(server.url);
-            }
-            if (
-                server.name == "Voe" ||
-                server.name == "VoeStream" ||
-                server.name == "Voex"
-            ) {
-                sourceUrl = (await fetchMp4Link(
-                    server.url,
-                    "https://voe.sx/",
-                )) as string;
-            }
+        const openVideoUrl = () =>
+            Linking.openURL(url).catch(() =>
+                Linking.openURL(server.url).catch(() => {}),
+            );
+
+        if (Platform.OS === "android") {
+            const title = `${animeTitle ?? ""} - Ep ${
+                details?.numberEpisode ?? ""
+            }`.trim();
+            // Distintos players leen distintos extras para los headers HTTP, asi que
+            // los mandamos en todos los formatos conocidos para maximizar compatibilidad.
+            // Nota: VLC y MPV-android no aceptan headers por intent de forma fiable;
+            // esto ayuda sobre todo a MX Player y players que leen HTTP_HEADERS.
             IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
-                data: sourceUrl,
-                extra: extras,
+                data: url,
                 type: "video/*",
-            }).catch((err) => {
-                console.error(
-                    "Failed to open with IntentLauncher, trying browser.",
-                    err,
-                );
-                Linking.openURL(server.url).catch((e) =>
-                    console.error("Couldn't load page", e),
-                );
-            });
+                extra: {
+                    // Formato "Key: Value"
+                    "android.intent.extra.HTTP_HEADERS": [
+                        `Referer: ${referer}`,
+                        `User-Agent: ${VIDEO_UA}`,
+                    ],
+                    // MX Player: array alternado [clave, valor, clave, valor]
+                    headers: [
+                        "Referer",
+                        referer,
+                        "User-Agent",
+                        VIDEO_UA,
+                    ],
+                    title,
+                },
+            }).catch(openVideoUrl);
         } else {
-            Linking.openURL(sourceUrl).catch(() => {
-                Linking.openURL(server.url).catch((e) =>
-                    console.error("Couldn't load page", e),
-                );
-            });
+            openVideoUrl();
+        }
+    };
+
+    const seekBy = (seconds: number) => {
+        if (!player) return;
+        if (typeof player.seekBy === "function") {
+            player.seekBy(seconds);
+        } else {
+            player.currentTime = player.currentTime + seconds;
         }
     };
 
@@ -319,17 +324,7 @@ export default function EpisodeScreen() {
                 </Text>
                 <View className="gap-y-2">
                     {details.servers.map((server) => {
-                        const validSources = [
-                            "streamtape",
-                            "voe",
-                            "YourUpload",
-                            "Stape",
-                        ];
-                        const isPressable = validSources.some((name) =>
-                            server.name
-                                .toLowerCase()
-                                .includes(name.toLowerCase()),
-                        );
+                        const isPressable = !!findExtractor(server.name);
                         return (
                             <Pressable
                                 key={server.name}
@@ -426,6 +421,31 @@ export default function EpisodeScreen() {
                             style={{ flex: 1 }}
                             contentFit="contain"
                         />
+                    )}
+                    {videoSource && (
+                        <View className="absolute bottom-20 self-center flex-row items-center gap-3 bg-black/50 rounded-full px-4 py-2">
+                            <TouchableOpacity
+                                className="p-2"
+                                onPress={() => seekBy(-10)}
+                            >
+                                <RotateCcw size={26} color="white" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                className="flex-row items-center gap-1 px-3 py-1"
+                                onPress={() => seekBy(85)}
+                            >
+                                <SkipForward size={22} color="white" />
+                                <Text className="text-white text-xs">
+                                    Saltar intro
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                className="p-2"
+                                onPress={() => seekBy(10)}
+                            >
+                                <RotateCw size={26} color="white" />
+                            </TouchableOpacity>
+                        </View>
                     )}
                     <TouchableOpacity
                         className="absolute top-10 right-5 z-10 bg-black/50 rounded-full p-2"
