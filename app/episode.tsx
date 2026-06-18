@@ -23,7 +23,7 @@ import {
     ExternalLink,
     Info,
 } from "~/lib/icons/lucide";
-import { VideoView, useVideoPlayer, VideoSource } from "expo-video";
+import Video, { VideoRef } from "react-native-video";
 import * as IntentLauncher from "expo-intent-launcher";
 import { findExtractor, ExtractorResult } from "~/lib/extractors";
 import { getProxiedUrl } from "~/modules/video-proxy";
@@ -74,15 +74,17 @@ export default function EpisodeScreen() {
     const [error, setError] = React.useState<string | null>(null);
 
     const [videoPlayerVisible, setVideoPlayerVisible] = React.useState(false);
-    const [videoSource, setVideoSource] = React.useState<VideoSource | null>(
-        null,
-    );
+    const [videoSource, setVideoSource] = React.useState<{
+        uri: string;
+        headers?: Record<string, string>;
+    } | null>(null);
     const [isOptionModalVisible, setOptionModalVisible] = React.useState(false);
     const [selectedServer, setSelectedServer] = React.useState<Server | null>(
         null,
     );
 
-    const player = useVideoPlayer(videoSource);
+    const videoRef = React.useRef<VideoRef>(null);
+    const currentTimeRef = React.useRef(0);
 
     React.useEffect(() => {
         if (!url) return;
@@ -118,12 +120,6 @@ export default function EpisodeScreen() {
 
         fetchData();
     }, [url]);
-
-    React.useEffect(() => {
-        if (videoPlayerVisible && player) {
-            player.play();
-        }
-    }, [videoPlayerVisible, player]);
 
     const handleServerPress = (server: Server) => {
         setSelectedServer(server);
@@ -249,12 +245,7 @@ export default function EpisodeScreen() {
     };
 
     const seekBy = (seconds: number) => {
-        if (!player) return;
-        if (typeof player.seekBy === "function") {
-            player.seekBy(seconds);
-        } else {
-            player.currentTime = player.currentTime + seconds;
-        }
+        videoRef.current?.seek(currentTimeRef.current + seconds);
     };
 
     const closeOptionModal = () => {
@@ -416,16 +407,26 @@ export default function EpisodeScreen() {
                 onRequestClose={() => {
                     setVideoPlayerVisible(false);
                     setVideoSource(null);
-                    player.pause();
                 }}
                 supportedOrientations={["portrait", "landscape"]}
             >
                 <View className="flex-1 bg-black justify-center">
                     {videoSource && (
-                        <VideoView
-                            player={player}
+                        <Video
+                            ref={videoRef}
+                            source={{
+                                uri: videoSource.uri,
+                                headers: videoSource.headers,
+                            }}
                             style={{ flex: 1 }}
-                            contentFit="contain"
+                            controls
+                            resizeMode="contain"
+                            onProgress={(d) => {
+                                currentTimeRef.current = d.currentTime;
+                            }}
+                            onError={(e) => {
+                                console.error("[Video] error", e);
+                            }}
                         />
                     )}
                     {videoSource && (
@@ -446,7 +447,6 @@ export default function EpisodeScreen() {
                         onPress={() => {
                             setVideoPlayerVisible(false);
                             setVideoSource(null);
-                            player.pause();
                         }}
                     >
                         <X size={28} color="white" />
