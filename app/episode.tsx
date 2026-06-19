@@ -15,7 +15,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
-import { X, SkipForward } from "lucide-react-native";
+import { X, SkipForward, Maximize, Minimize } from "lucide-react-native";
+import * as ScreenOrientation from "expo-screen-orientation";
 import {
     Server,
     ChevronRight,
@@ -25,7 +26,11 @@ import {
 } from "~/lib/icons/lucide";
 import Video, { VideoRef } from "react-native-video";
 import * as IntentLauncher from "expo-intent-launcher";
-import { findExtractor, ExtractorResult } from "~/lib/extractors";
+import {
+    findExtractor,
+    isExternalSupported,
+    ExtractorResult,
+} from "~/lib/extractors";
 import { getProxiedUrl } from "~/modules/video-proxy";
 import { toast } from "sonner-native";
 import axios from "axios";
@@ -86,6 +91,42 @@ export default function EpisodeScreen() {
 
     const videoRef = React.useRef<VideoRef>(null);
     const currentTimeRef = React.useRef(0);
+    const [isBuffering, setIsBuffering] = React.useState(false);
+    const [isLandscape, setIsLandscape] = React.useState(false);
+
+    // Mientras el reproductor esta abierto permitimos rotar; al cerrarlo
+    // volvemos a bloquear en vertical (la app esta en portrait por defecto).
+    React.useEffect(() => {
+        if (videoPlayerVisible) {
+            ScreenOrientation.unlockAsync().catch(() => {});
+        } else {
+            ScreenOrientation.lockAsync(
+                ScreenOrientation.OrientationLock.PORTRAIT_UP,
+            ).catch(() => {});
+            setIsLandscape(false);
+        }
+        return () => {
+            ScreenOrientation.lockAsync(
+                ScreenOrientation.OrientationLock.PORTRAIT_UP,
+            ).catch(() => {});
+        };
+    }, [videoPlayerVisible]);
+
+    const toggleOrientation = async () => {
+        try {
+            if (isLandscape) {
+                await ScreenOrientation.lockAsync(
+                    ScreenOrientation.OrientationLock.PORTRAIT_UP,
+                );
+                setIsLandscape(false);
+            } else {
+                await ScreenOrientation.lockAsync(
+                    ScreenOrientation.OrientationLock.LANDSCAPE,
+                );
+                setIsLandscape(true);
+            }
+        } catch {}
+    };
 
     React.useEffect(() => {
         if (!url) return;
@@ -352,6 +393,7 @@ export default function EpisodeScreen() {
                 <View className="gap-y-2">
                     {details.servers.map((server) => {
                         const isPressable = !!findExtractor(server.name);
+                        const external = isExternalSupported(server.name);
                         return (
                             <Pressable
                                 key={server.name}
@@ -371,6 +413,27 @@ export default function EpisodeScreen() {
                                     <Text className="flex-1 ml-3 text-foreground font-medium">
                                         {server.name}
                                     </Text>
+                                    {isPressable && (
+                                        <View
+                                            className={`mr-2 px-2 py-0.5 rounded-full ${
+                                                external
+                                                    ? "bg-green-500/15"
+                                                    : "bg-amber-500/15"
+                                            }`}
+                                        >
+                                            <Text
+                                                className={`text-[11px] font-medium ${
+                                                    external
+                                                        ? "text-green-600"
+                                                        : "text-amber-600"
+                                                }`}
+                                            >
+                                                {external
+                                                    ? "Interno y externo"
+                                                    : "Solo interno"}
+                                            </Text>
+                                        </View>
+                                    )}
                                     {isPressable && (
                                         <ChevronRight
                                             size={20}
@@ -421,6 +484,13 @@ export default function EpisodeScreen() {
                                 <Text>Externo</Text>
                             </Button>
                         </View>
+                        {selectedServer &&
+                            !isExternalSupported(selectedServer.name) && (
+                                <Text className="text-xs text-amber-600 text-center mt-3">
+                                    {selectedServer.name} solo funciona en el
+                                    reproductor interno.
+                                </Text>
+                            )}
                         <Button
                             onPress={closeOptionModal}
                             variant="ghost"
@@ -454,8 +524,15 @@ export default function EpisodeScreen() {
                             onProgress={(d) => {
                                 currentTimeRef.current = d.currentTime;
                             }}
+                            onLoadStart={() => setIsBuffering(true)}
+                            onLoad={() => setIsBuffering(false)}
+                            onBuffer={({ isBuffering: b }) =>
+                                setIsBuffering(b)
+                            }
+                            onReadyForDisplay={() => setIsBuffering(false)}
                             onError={(e) => {
                                 console.error("[Video] error", e);
+                                setIsBuffering(false);
                                 toast.error("No se pudo reproducir el video", {
                                     description:
                                         "Prueba otro servidor o el modo externo",
@@ -465,28 +542,64 @@ export default function EpisodeScreen() {
                             }}
                         />
                     )}
-                    {videoSource && (
-                        <View className="absolute bottom-20 self-center flex-row items-center bg-black/50 rounded-full px-4 py-2">
-                            <TouchableOpacity
-                                className="flex-row items-center gap-1 px-3 py-1"
-                                onPress={() => seekBy(85)}
-                            >
-                                <SkipForward size={22} color="white" />
-                                <Text className="text-white text-xs">
-                                    Saltar intro
-                                </Text>
-                            </TouchableOpacity>
+
+                    {/* Spinner de carga / buffering */}
+                    {videoSource && isBuffering && (
+                        <View
+                            pointerEvents="none"
+                            className="absolute inset-0 items-center justify-center"
+                        >
+                            <ActivityIndicator size="large" color="white" />
                         </View>
                     )}
-                    <TouchableOpacity
-                        className="absolute top-10 right-5 z-10 bg-black/50 rounded-full p-2"
-                        onPress={() => {
-                            setVideoPlayerVisible(false);
-                            setVideoSource(null);
-                        }}
-                    >
-                        <X size={28} color="white" />
-                    </TouchableOpacity>
+
+                    {/* Barra superior de controles */}
+                    {videoSource && (
+                        <View className="absolute top-0 left-0 right-0">
+                            <LinearGradient
+                                colors={["rgba(0,0,0,0.6)", "transparent"]}
+                                style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    paddingHorizontal: 16,
+                                    paddingTop: 40,
+                                    paddingBottom: 24,
+                                }}
+                            >
+                                <TouchableOpacity
+                                    className="bg-black/50 rounded-full p-2"
+                                    onPress={toggleOrientation}
+                                >
+                                    {isLandscape ? (
+                                        <Minimize size={24} color="white" />
+                                    ) : (
+                                        <Maximize size={24} color="white" />
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    className="flex-row items-center gap-1 bg-black/50 rounded-full px-3 py-2"
+                                    onPress={() => seekBy(85)}
+                                >
+                                    <SkipForward size={18} color="white" />
+                                    <Text className="text-white text-xs font-medium">
+                                        Saltar intro
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    className="bg-black/50 rounded-full p-2"
+                                    onPress={() => {
+                                        setVideoPlayerVisible(false);
+                                        setVideoSource(null);
+                                    }}
+                                >
+                                    <X size={24} color="white" />
+                                </TouchableOpacity>
+                            </LinearGradient>
+                        </View>
+                    )}
                 </View>
             </Modal>
         </ScrollView>
