@@ -3,10 +3,11 @@ import '~/global.css';
 import { DarkTheme, DefaultTheme, Theme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { vars } from 'nativewind';
 import * as React from 'react';
 import { Appearance, Platform, View } from 'react-native';
 import { NAV_THEME } from '~/lib/constants';
-import { useColorScheme } from '~/lib/useColorScheme';
+import { OledProvider, useColorScheme } from '~/lib/useColorScheme';
 import { PortalHost } from '@rn-primitives/portal';
 import { ThemeToggle } from '~/components/ThemeToggle';
 import { setAndroidNavigationBar } from '~/lib/android-navigation-bar';
@@ -21,11 +22,39 @@ const DARK_THEME: Theme = {
   ...DarkTheme,
   colors: NAV_THEME.dark,
 };
+const OLED_THEME: Theme = {
+  ...DarkTheme,
+  colors: NAV_THEME.oled,
+};
+
+const oledVars = vars({
+  '--background': '0 0% 0%',
+  '--foreground': '0 0% 98%',
+  '--card': '0 0% 0%',
+  '--card-foreground': '0 0% 98%',
+  '--popover': '0 0% 0%',
+  '--popover-foreground': '0 0% 98%',
+  '--primary': '0 0% 98%',
+  '--primary-foreground': '240 5.9% 10%',
+  '--secondary': '0 0% 4%',
+  '--secondary-foreground': '0 0% 98%',
+  '--muted': '0 0% 4%',
+  '--muted-foreground': '240 5% 64.9%',
+  '--accent': '0 0% 4%',
+  '--accent-foreground': '0 0% 98%',
+  '--destructive': '0 72% 51%',
+  '--destructive-foreground': '0 0% 98%',
+  '--border': '0 0% 10%',
+  '--input': '0 0% 10%',
+  '--ring': '240 4.9% 83.9%',
+});
 
 export {
-  // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
+
+const useIsomorphicLayoutEffect =
+  Platform.OS === 'web' && typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
 
 const usePlatformSpecificSetup = Platform.select({
   web: useSetWebBackgroundClassName,
@@ -34,13 +63,28 @@ const usePlatformSpecificSetup = Platform.select({
 });
 
 export default function RootLayout() {
-  usePlatformSpecificSetup();
-  const { isDarkColorScheme } = useColorScheme();
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
-        <StatusBar style={isDarkColorScheme ? 'light' : 'dark'} />
+      <OledProvider>
+        <RootLayoutContent />
+      </OledProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+function RootLayoutContent() {
+  usePlatformSpecificSetup();
+  const { colorScheme, isOledMode } = useColorScheme();
+
+  const navTheme =
+    colorScheme === 'oled' ? OLED_THEME :
+    colorScheme === 'dark' ? DARK_THEME :
+    LIGHT_THEME;
+
+  return (
+    <ThemeProvider value={navTheme}>
+      <View style={isOledMode ? oledVars : undefined} className='flex-1'>
+        <StatusBar style={colorScheme === 'light' ? 'dark' : 'light'} />
         <Stack>
           <Stack.Screen name='index' options={{ headerShown: false }} />
           <Stack.Screen
@@ -74,17 +118,13 @@ export default function RootLayout() {
         </Stack>
         <PortalHost />
         <Toaster />
-      </ThemeProvider>
-    </GestureHandlerRootView>
+      </View>
+    </ThemeProvider>
   );
 }
 
-const useIsomorphicLayoutEffect =
-  Platform.OS === 'web' && typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
-
 function useSetWebBackgroundClassName() {
   useIsomorphicLayoutEffect(() => {
-    // Adds the background color to the html element to prevent white background on overscroll.
     document.documentElement.classList.add('bg-background');
   }, []);
 }

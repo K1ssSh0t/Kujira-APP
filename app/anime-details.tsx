@@ -30,8 +30,8 @@ interface AnimeDetails {
 
 export default function AnimeDetailsScreen() {
   const router = useRouter();
-  const { isDarkColorScheme } = useColorScheme();
-  const cardColor = isDarkColorScheme ? 'hsl(240, 10%, 3.9%)' : 'hsl(0, 0%, 100%)';
+  const { colorScheme } = useColorScheme();
+  const cardColor = colorScheme === 'oled' ? 'hsl(0, 0%, 0%)' : colorScheme === 'dark' ? 'hsl(240, 10%, 3.9%)' : 'hsl(0, 0%, 100%)';
   const { url } = useLocalSearchParams<{ url: string }>();
   const { provider } = useLocalSearchParams<{ provider: string }>();
   const [details, setDetails] = React.useState<AnimeDetails | null>(null);
