@@ -1,8 +1,19 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme as useNativewindColorScheme } from 'nativewind';
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 
 export type ColorSchemeType = 'light' | 'dark' | 'oled';
+
+export const OLED_STORAGE_KEY = 'kujira-oled-mode';
+
+export async function getStoredOledMode(): Promise<boolean> {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return window.localStorage.getItem(OLED_STORAGE_KEY) === '1';
+  }
+  const value = await AsyncStorage.getItem(OLED_STORAGE_KEY).catch(() => null);
+  return value === '1';
+}
 
 type OledContextType = {
   isOled: boolean;
@@ -15,14 +26,35 @@ const OledContext = createContext<OledContextType>({
 });
 
 export function OledProvider({ children }: { children: React.ReactNode }) {
-  const [isOled, setOled] = useState(() => {
-    if (Platform.OS === 'web') {
-      return document.documentElement.classList.contains('oled');
+  const [isOled, setIsOled] = useState(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      return window.localStorage.getItem(OLED_STORAGE_KEY) === '1';
     }
     return false;
   });
 
-  const value = useMemo(() => ({ isOled, setOled }), [isOled]);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    AsyncStorage.getItem(OLED_STORAGE_KEY)
+      .then((value) => setIsOled(value === '1'))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    document.documentElement.classList.toggle('oled', isOled);
+  }, [isOled]);
+
+  const setOled = useCallback((value: boolean) => {
+    setIsOled(value);
+    if (Platform.OS === 'web') {
+      window.localStorage.setItem(OLED_STORAGE_KEY, value ? '1' : '0');
+    } else {
+      AsyncStorage.setItem(OLED_STORAGE_KEY, value ? '1' : '0').catch(() => {});
+    }
+  }, []);
+
+  const value = useMemo(() => ({ isOled, setOled }), [isOled, setOled]);
   return <OledContext.Provider value={value}>{children}</OledContext.Provider>;
 }
 
@@ -37,15 +69,9 @@ export function useColorScheme() {
     if (scheme === 'oled') {
       setColorScheme('dark');
       setOled(true);
-      if (Platform.OS === 'web') {
-        document.documentElement.classList.add('oled');
-      }
     } else {
       setColorScheme(scheme);
       setOled(false);
-      if (Platform.OS === 'web') {
-        document.documentElement.classList.remove('oled');
-      }
     }
   }, [setColorScheme, setOled]);
 

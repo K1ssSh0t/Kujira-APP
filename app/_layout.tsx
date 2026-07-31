@@ -7,7 +7,7 @@ import { vars } from 'nativewind';
 import * as React from 'react';
 import { Appearance, Platform, View } from 'react-native';
 import { NAV_THEME } from '~/lib/constants';
-import { OledProvider, useColorScheme } from '~/lib/useColorScheme';
+import { OledProvider, getStoredOledMode, useColorScheme } from '~/lib/useColorScheme';
 import { PortalHost } from '@rn-primitives/portal';
 import { ThemeToggle } from '~/components/ThemeToggle';
 import { setAndroidNavigationBar } from '~/lib/android-navigation-bar';
@@ -131,7 +131,13 @@ function useSetWebBackgroundClassName() {
 
 function useSetAndroidNavigationBar() {
   React.useLayoutEffect(() => {
-    setAndroidNavigationBar(Appearance.getColorScheme() ?? 'light');
+    getStoredOledMode().then((isOled) => {
+      if (isOled) {
+        setAndroidNavigationBar('oled');
+      } else {
+        setAndroidNavigationBar(Appearance.getColorScheme() ?? 'light');
+      }
+    });
   }, []);
 }
 
