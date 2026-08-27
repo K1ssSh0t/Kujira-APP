@@ -1,7 +1,7 @@
 {
     "name": "Kujira-APP",
     "main": "index.js",
-    "version": "1.4.6",
+    "version": "1.4.7",
     "scripts": {
         "dev": "expo start -c",
         "dev:web": "expo start -c --web",
