@@ -41,6 +41,7 @@ interface Server {
     name: string;
     url: string;
     source: string;
+    language?: string;
 }
 
 interface EpisodeDetails {
@@ -390,60 +391,95 @@ export default function EpisodeScreen() {
                 <Text className="text-lg font-semibold text-foreground mb-3">
                     Servidores disponibles
                 </Text>
-                <View className="gap-y-2">
-                    {details.servers.map((server) => {
-                        const isPressable = !!findExtractor(server.name);
-                        const external = isExternalSupported(server.name);
-                        return (
-                            <Pressable
-                                key={server.name}
-                                onPress={() => handleServerPress(server)}
-                                disabled={!isPressable}
-                                className={
-                                    isPressable
-                                        ? "active:opacity-70"
-                                        : "opacity-40"
-                                }
-                            >
-                                <Card className="flex-row items-center p-4 rounded-xl border-border">
-                                    <Server
-                                        size={20}
-                                        className="text-muted-foreground"
-                                    />
-                                    <Text className="flex-1 ml-3 text-foreground font-medium">
-                                        {server.name}
+                <View className="gap-y-4">
+                    {(() => {
+                        const groupBy = <T,>(arr: T[], fn: (x: T) => string) =>
+                            arr.reduce(
+                                (acc, cur) => {
+                                    const k = fn(cur);
+                                    (acc[k] ??= []).push(cur);
+                                    return acc;
+                                },
+                                {} as Record<string, T[]>,
+                            );
+                        const byLang = groupBy(details.servers, (s) => s.language || "SUB");
+                        const orderedLangs = Object.keys(byLang).sort((a, b) => {
+                            if (a === b) return 0;
+                            if (a === "SUB") return -1;
+                            if (b === "SUB") return 1;
+                            if (a === "DUB") return -1;
+                            if (b === "DUB") return 1;
+                            return a.localeCompare(b);
+                        });
+                        return orderedLangs.map((lang) => (
+                            <View key={lang} className="gap-y-2">
+                                <View
+                                    className={`self-start px-2.5 py-1 rounded-full ${lang === "DUB" ? "bg-purple-500/15" : "bg-blue-500/15"}`}
+                                >
+                                    <Text
+                                        className={`text-xs font-bold tracking-wide ${lang === "DUB" ? "text-purple-600" : "text-blue-600"}`}
+                                    >
+                                        {lang}
                                     </Text>
-                                    {isPressable && (
-                                        <View
-                                            className={`mr-2 px-2 py-0.5 rounded-full ${
-                                                external
-                                                    ? "bg-green-500/15"
-                                                    : "bg-amber-500/15"
-                                            }`}
-                                        >
-                                            <Text
-                                                className={`text-[11px] font-medium ${
-                                                    external
-                                                        ? "text-green-600"
-                                                        : "text-amber-600"
-                                                }`}
+                                </View>
+                                <View className="gap-y-2">
+                                    {byLang[lang].map((server) => {
+                                        const isPressable = !!findExtractor(server.name);
+                                        const external = isExternalSupported(server.name);
+                                        return (
+                                            <Pressable
+                                                key={`${lang}-${server.name}-${server.url}`}
+                                                onPress={() => handleServerPress(server)}
+                                                disabled={!isPressable}
+                                                className={
+                                                    isPressable
+                                                        ? "active:opacity-70"
+                                                        : "opacity-40"
+                                                }
                                             >
-                                                {external
-                                                    ? "Interno y externo"
-                                                    : "Solo interno"}
-                                            </Text>
-                                        </View>
-                                    )}
-                                    {isPressable && (
-                                        <ChevronRight
-                                            size={20}
-                                            className="text-muted-foreground"
-                                        />
-                                    )}
-                                </Card>
-                            </Pressable>
-                        );
-                    })}
+                                                <Card className="flex-row items-center p-4 rounded-xl border-border">
+                                                    <Server
+                                                        size={20}
+                                                        className="text-muted-foreground"
+                                                    />
+                                                    <Text className="flex-1 ml-3 text-foreground font-medium">
+                                                        {server.name}
+                                                    </Text>
+                                                    {isPressable && (
+                                                        <View
+                                                            className={`mr-2 px-2 py-0.5 rounded-full ${
+                                                                external
+                                                                    ? "bg-green-500/15"
+                                                                    : "bg-amber-500/15"
+                                                            }`}
+                                                        >
+                                                            <Text
+                                                                className={`text-[11px] font-medium ${
+                                                                    external
+                                                                        ? "text-green-600"
+                                                                        : "text-amber-600"
+                                                                }`}
+                                                            >
+                                                                {external
+                                                                    ? "Interno y externo"
+                                                                    : "Solo interno"}
+                                                            </Text>
+                                                        </View>
+                                                    )}
+                                                    {isPressable && (
+                                                        <ChevronRight
+                                                            size={20}
+                                                            className="text-muted-foreground"
+                                                        />
+                                                    )}
+                                                </Card>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                            </View>
+                        ));
+                    })()}
                 </View>
             </View>
 
