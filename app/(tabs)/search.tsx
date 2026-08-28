@@ -57,7 +57,13 @@ export default function Screen() {
             if (provider === "animeflv") {
                 data = data.map((item: Anime) => ({
                     ...item,
-                    image: `${item.image}`,
+                    image: item.image?.startsWith("http") ? item.image : `https://animeflv.net${item.image}`,
+                }));
+            }
+            if (provider === "monoschinos") {
+                data = data.map((item: Anime) => ({
+                    ...item,
+                    image: item.image?.startsWith("http") ? item.image : `https://monoschinos.lol${item.image}`,
                 }));
             }
 

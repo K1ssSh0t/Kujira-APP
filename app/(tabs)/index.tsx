@@ -91,6 +91,12 @@ export default function Screen() {
                         img: `https://animeflv.net${item.img}`,
                     }));
                 }
+                if (provider === "monoschinos") {
+                    json = json.map((item: Anime) => ({
+                        ...item,
+                        img: item.img?.startsWith("http") ? item.img : `https://monoschinos.lol${item.img}`,
+                    }));
+                }
 
                 setData(json);
                 await setCache(cacheKey, json);
