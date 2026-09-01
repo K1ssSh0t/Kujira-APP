@@ -10,6 +10,20 @@ import { Text } from "~/components/ui/text";
 import { getHistory, HistoryItem } from "~/lib/history";
 import { useFocusEffect, useRouter } from "expo-router";
 
+function getImageSource(uri: string, provider: string) {
+  if (provider === "monoschinos" && uri) {
+    return {
+      uri,
+      headers: {
+        Referer: "https://monoschinos.lol/",
+        "User-Agent":
+          "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+      },
+    };
+  }
+  return { uri };
+}
+
 export default function HistoryScreen() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +81,7 @@ export default function HistoryScreen() {
               onPress={() => handlePress(item)}
             >
               <Image
-                source={{ uri: item.image }}
+                source={getImageSource(item.image, item.provider)}
                 className="w-24 h-32 rounded-md"
               />
               <View className="ml-4 flex-1">

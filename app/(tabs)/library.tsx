@@ -12,6 +12,20 @@ import { getWatchlist, WatchlistItem, WatchStatus } from "~/lib/watchlist";
 import { useFocusEffect, useRouter } from "expo-router";
 import { cn } from "~/lib/utils";
 
+function getImageSource(uri: string, provider: string) {
+    if (provider === "monoschinos" && uri) {
+        return {
+            uri,
+            headers: {
+                Referer: "https://monoschinos.lol/",
+                "User-Agent":
+                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+            },
+        };
+    }
+    return { uri };
+}
+
 export default function LibraryScreen() {
     const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -115,7 +129,7 @@ export default function LibraryScreen() {
                             activeOpacity={1}
                         >
                             <Image
-                                source={{ uri: item.image }}
+                                source={getImageSource(item.image, item.provider)}
                                 className="w-24 h-32 rounded-md"
                             />
                             <View className="ml-4 flex-1">

@@ -52,6 +52,20 @@ interface EpisodeDetails {
 
 const BASE_API_URL = "https://kujira.unusualoticramo.workers.dev";
 
+function getImageSource(uri?: string, provider?: string) {
+    if (provider === "monoschinos" && uri) {
+        return {
+            uri,
+            headers: {
+                Referer: "https://monoschinos.lol/",
+                "User-Agent":
+                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+            },
+        };
+    }
+    return uri ? { uri } : undefined;
+}
+
 // Mismo User-Agent que usan los extractores; algunos hosts (Mp4Upload) ademas del
 // Referer validan el UA para servir el video.
 const VIDEO_UA =
@@ -348,7 +362,7 @@ export default function EpisodeScreen() {
             {/* Episode hero */}
             <View className="w-full h-56">
                 <ImageBackground
-                    source={animeImage ? { uri: animeImage } : undefined}
+                    source={getImageSource(animeImage, provider)}
                     className="w-full h-full justify-end bg-secondary"
                 >
                     <LinearGradient

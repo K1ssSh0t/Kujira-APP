@@ -31,6 +31,20 @@ interface Anime {
     episode: string;
 }
 
+function getImageSource(uri: string, provider: Provider) {
+    if (provider === "monoschinos" && uri) {
+        return {
+            uri,
+            headers: {
+                Referer: "https://monoschinos.lol/",
+                "User-Agent":
+                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+            },
+        };
+    }
+    return { uri };
+}
+
 function SkeletonPoster() {
     const opacity = React.useRef(new Animated.Value(0.4)).current;
 
@@ -143,7 +157,7 @@ export default function Screen() {
         >
             <Card className="w-full rounded-2xl overflow-hidden border-0">
                 <ImageBackground
-                    source={{ uri: item.img }}
+                    source={getImageSource(item.img, provider)}
                     className="w-full aspect-[2/3] justify-end bg-secondary"
                 >
                     {/* Episode badge */}

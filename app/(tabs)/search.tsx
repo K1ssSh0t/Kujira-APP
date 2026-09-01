@@ -21,6 +21,20 @@ interface Anime {
     type: string;
 }
 
+function getImageSource(uri: string, provider: Provider) {
+    if (provider === "monoschinos" && uri) {
+        return {
+            uri,
+            headers: {
+                Referer: "https://monoschinos.lol/",
+                "User-Agent":
+                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+            },
+        };
+    }
+    return { uri };
+}
+
 export default function Screen() {
     const router = useRouter();
     const [provider, setProvider] = React.useState<Provider>("tioanime");
@@ -115,7 +129,7 @@ export default function Screen() {
                             className="flex-row items-center mb-4 p-2 bg-card rounded-lg"
                         >
                             <Image
-                                source={{ uri: item.image }}
+                                source={getImageSource(item.image, provider)}
                                 className="w-16 h-24 rounded-md mr-4"
                             />
                             <View className="flex-1">

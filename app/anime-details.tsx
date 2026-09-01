@@ -28,6 +28,20 @@ interface AnimeDetails {
   episodes: { name: string; url: string }[];
 }
 
+function getImageSource(uri: string, provider?: string) {
+  if (provider === 'monoschinos' && uri) {
+    return {
+      uri,
+      headers: {
+        Referer: 'https://monoschinos.lol/',
+        'User-Agent':
+          'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
+      },
+    };
+  }
+  return { uri };
+}
+
 export default function AnimeDetailsScreen() {
   const router = useRouter();
   const { colorScheme } = useColorScheme();
@@ -145,7 +159,7 @@ export default function AnimeDetailsScreen() {
           {/* Cinematic hero */}
           <View className="w-full h-80">
             <ImageBackground
-              source={{ uri: details.img }}
+              source={getImageSource(details.img, provider as string)}
               className="w-full h-full justify-end bg-secondary"
             >
               <LinearGradient
@@ -241,7 +255,7 @@ export default function AnimeDetailsScreen() {
                   <View className="w-24 h-16 rounded-lg overflow-hidden bg-secondary items-center justify-center">
                     {details.img ? (
                       <ImageBackground
-                        source={{ uri: details.img }}
+                        source={getImageSource(details.img, provider as string)}
                         className="w-full h-full"
                       />
                     ) : (
