@@ -72,37 +72,41 @@ export default function LibraryScreen() {
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center bg-background">
-                <ActivityIndicator size="large" />
+                <ActivityIndicator size="large" color="#8B5CF6" />
             </View>
         );
     }
 
     return (
-        <View className="flex-1 bg-background p-4">
-            <Text className="text-2xl font-bold text-foreground mb-4">Library</Text>
+        <View className="flex-1 bg-background px-4 pt-5">
+            <Text className="text-[28px] font-extrabold tracking-tight text-foreground">Library</Text>
+            <Text className="text-[13px] text-muted-foreground mt-0.5 mb-4">
+                {watchlist.length} títulos guardados
+            </Text>
 
             {/* Filter Chips */}
-            <View className="mb-4">
+            <View className="mb-4 -mx-4">
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    className="flex-row gap-2"
+                    contentContainerClassName="flex-row gap-2 px-4"
                 >
                     {filters.map((f) => (
                         <TouchableOpacity
                             key={f.value}
                             onPress={() => setFilter(f.value)}
                             className={cn(
-                                "px-4 py-2 rounded-full border mr-2",
+                                "px-4 py-2.5 rounded-full border mr-0",
                                 filter === f.value
-                                    ? "bg-primary border-primary"
-                                    : "bg-background border-border"
+                                    ? "bg-[#7C3AED] border-[#7C3AED]"
+                                    : "bg-card border-border"
                             )}
-                            activeOpacity={1}
+                            activeOpacity={0.7}
                         >
                             <Text
                                 className={cn(
-                                    filter === f.value ? "text-primary-foreground" : "text-foreground"
+                                    "text-[13px]",
+                                    filter === f.value ? "text-white font-bold" : "text-foreground font-medium"
                                 )}
                             >
                                 {f.label}
@@ -113,8 +117,8 @@ export default function LibraryScreen() {
             </View>
 
             {filteredList.length === 0 ? (
-                <View className="flex-1 justify-center items-center">
-                    <Text className="text-lg text-muted-foreground">
+                <View className="flex-1 justify-center items-center pb-24">
+                    <Text className="text-[15px] text-muted-foreground text-center">
                         No anime found in this category.
                     </Text>
                 </View>
@@ -122,32 +126,30 @@ export default function LibraryScreen() {
                 <FlatList
                     data={filteredList}
                     keyExtractor={(item) => item.animeId}
+                    contentContainerClassName="pb-32"
                     renderItem={({ item }) => (
                         <TouchableOpacity
-                            className="flex-row items-center mb-4"
+                            className="flex-row items-center mb-2.5 p-2.5 bg-card border border-border/60 rounded-[18px]"
                             onPress={() => handlePress(item)}
-                            activeOpacity={1}
+                            activeOpacity={0.7}
                         >
                             <Image
                                 source={getImageSource(item.image, item.provider)}
-                                className="w-24 h-32 rounded-md"
+                                className="w-[72px] h-[104px] rounded-xl bg-secondary"
                             />
-                            <View className="ml-4 flex-1">
-                                <Text className="text-lg font-bold text-foreground">
+                            <View className="ml-3 flex-1 pr-1">
+                                <Text className="text-[15px] font-semibold text-foreground leading-5" numberOfLines={2}>
                                     {item.title}
                                 </Text>
-                                <View className="bg-secondary self-start px-2 py-1 rounded mt-1">
-                                    <Text className="text-xs text-secondary-foreground capitalize">
+                                <View className="bg-[#8B5CF6]/12 dark:bg-[#8B5CF6]/20 self-start px-2.5 py-1 rounded-full mt-1.5">
+                                    <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD] capitalize">
                                         {item.status.replace(/_/g, " ")}
                                     </Text>
                                 </View>
-                                <Text className="text-sm text-muted-foreground mt-1">
-                                    Updated: {new Date(item.updatedAt).toLocaleDateString()}
-                                    {" "}
-                                    {new Date(item.updatedAt).toLocaleTimeString()}
-                                </Text>
-                                <Text className="text-sm text-muted-foreground mt-1 capitalize">
-                                    Provider: {item.provider}
+                                <Text className="text-xs text-muted-foreground mt-1.5" numberOfLines={1}>
+                                    {new Date(item.updatedAt).toLocaleDateString()}
+                                    {" · "}
+                                    {item.provider}
                                 </Text>
                             </View>
                         </TouchableOpacity>

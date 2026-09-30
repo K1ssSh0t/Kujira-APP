@@ -12,6 +12,7 @@ import { Card, CardTitle } from "~/components/ui/card";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
 import { Info, WifiOff } from "~/lib/icons/lucide";
+import { Clapperboard } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { ProviderSelector, Provider } from "~/components/ProviderSelector";
 import { getCache, setCache } from "~/lib/cache";
@@ -70,7 +71,7 @@ function SkeletonPoster() {
     return (
         <Animated.View
             style={{ opacity }}
-            className="w-full aspect-[2/3] rounded-2xl bg-secondary"
+            className="w-full aspect-[2/3] rounded-[20px] bg-secondary dark:bg-white/10"
         />
     );
 }
@@ -155,41 +156,42 @@ export default function Screen() {
             onPress={() => handleCardPress(item)}
             className="flex-1 p-1.5 active:opacity-80"
         >
-            <Card className="w-full rounded-2xl overflow-hidden border-0">
+            <Card className="w-full rounded-[20px] overflow-hidden border border-border/60 shadow-md shadow-black/10 dark:shadow-black/50">
                 <ImageBackground
                     source={getImageSource(item.img, provider)}
-                    className="w-full aspect-[2/3] justify-end bg-secondary"
+                    className="w-full aspect-[2/3] justify-end bg-secondary dark:bg-white/5"
                 >
                     {/* Episode badge */}
-                    <View className="absolute top-2 left-2 bg-primary px-2 py-1 rounded-md">
-                        <Text className="text-primary-foreground text-xs font-bold">
+                    <View className="absolute top-2 left-2 bg-[#7C3AED] px-2.5 py-1 rounded-full shadow-sm shadow-black/30">
+                        <Text className="text-white text-[11px] font-extrabold tracking-wide">
                             {item.episode}
                         </Text>
                     </View>
 
                     {/* Info button */}
                     <TouchableOpacity
-                        className="absolute top-2 right-2 bg-black/60 border border-white/20 p-2 rounded-full"
+                        className="absolute top-2 right-2 bg-black/60 border border-white/20 w-8 h-8 items-center justify-center rounded-full"
+                        hitSlop={10}
                         onPress={(e) => {
                             e.stopPropagation(); // Prevent card press from firing
                             handleInfoPress(item);
                         }}
                     >
-                        <Info size={18} color="white" />
+                        <Info size={15} color="white" />
                     </TouchableOpacity>
 
                     {/* Bottom gradient + title */}
                     <LinearGradient
-                        colors={["transparent", "rgba(0,0,0,0.85)"]}
+                        colors={["transparent", "rgba(0,0,0,0.55)", "rgba(0,0,0,0.92)"]}
                         style={{
                             paddingHorizontal: 12,
-                            paddingTop: 40,
+                            paddingTop: 44,
                             paddingBottom: 12,
                         }}
                     >
                         <CardTitle
                             numberOfLines={2}
-                            className="text-white text-sm font-bold leading-tight"
+                            className="text-white text-[13px] font-semibold leading-[16px]"
                         >
                             {item.title}
                         </CardTitle>
@@ -210,7 +212,11 @@ export default function Screen() {
     );
 
     return (
-        <View className="flex-1 p-4 bg-background">
+        <View className="flex-1 px-3 pt-5 bg-background">
+            <Text className="text-[28px] font-extrabold tracking-tight text-foreground px-1">Latest</Text>
+            <Text className="text-[13px] text-muted-foreground mt-0.5 mb-3 px-1">
+                {!loading && !error && data.length > 0 ? `${data.length} fresh episodes` : "Fresh episodes"}
+            </Text>
             <ProviderSelector
                 provider={provider}
                 onProviderChange={setProvider}
@@ -220,13 +226,24 @@ export default function Screen() {
                 renderSkeleton()
             ) : error ? (
                 <View className="flex-1 justify-center items-center gap-4 px-8">
-                    <WifiOff size={48} className="text-muted-foreground" />
-                    <Text className="text-muted-foreground text-center">
+                    <View className="w-16 h-16 rounded-full bg-secondary items-center justify-center">
+                        <WifiOff size={28} className="text-muted-foreground" />
+                    </View>
+                    <Text className="text-muted-foreground text-center text-[15px] leading-6">
                         {error}
                     </Text>
-                    <Button onPress={() => setProvider((p) => p)}>
+                    <Button onPress={() => setProvider((p) => p)} className="h-12 rounded-2xl px-6">
                         <Text>Reintentar</Text>
                     </Button>
+                </View>
+            ) : data.length === 0 ? (
+                <View className="flex-1 justify-center items-center gap-3 px-8 pb-24">
+                    <View className="w-16 h-16 rounded-full bg-secondary dark:bg-white/10 items-center justify-center">
+                        <Clapperboard size={28} color="#7C3AED" />
+                    </View>
+                    <Text className="text-muted-foreground text-center text-[15px] leading-6">
+                        No episodes found. Try another provider.
+                    </Text>
                 </View>
             ) : (
                 <FlatList
@@ -235,7 +252,7 @@ export default function Screen() {
                     keyExtractor={(item, index) =>
                         `${provider}-${item.title}-${index}`
                     }
-                    contentContainerClassName="gap-1 pt-2 pb-4"
+                    contentContainerClassName="gap-1 pt-1 pb-32"
                     numColumns={2}
                     key={provider}
                 />

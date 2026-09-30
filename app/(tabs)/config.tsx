@@ -142,39 +142,44 @@ export default function ConfigScreen() {
   if (statusLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-background">
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#8B5CF6" />
       </View>
     );
   }
 
   return (
-    <ScrollView className="flex-1 bg-background p-4">
-      <Text className="text-2xl font-bold text-foreground mb-4">
+    <ScrollView className="flex-1 bg-background" contentContainerClassName="p-4 pb-32">
+      <Text className="text-[28px] font-extrabold tracking-tight text-foreground">
         MyAnimeList Sync
+      </Text>
+      <Text className="text-[13px] text-muted-foreground mt-0.5 mb-4">
+        Conecta y sincroniza tu progreso
       </Text>
 
       {/* Connection Status */}
-      <View className="bg-card p-4 rounded-lg mb-4 border border-border">
-        <Text className="text-lg font-semibold text-foreground mb-2">
+      <View className="bg-card p-4 rounded-[20px] mb-3 border border-border/60">
+        <Text className="text-[15px] font-bold text-foreground mb-2.5">
           Connection Status
         </Text>
         {authenticated && config?.mal?.username ? (
           <View>
-            <View className="bg-green-500/20 px-3 py-2 rounded-md mb-2">
-              <Text className="text-green-600 dark:text-green-400 font-medium">
+            <View className="bg-green-500/15 px-3 py-2.5 rounded-xl mb-2 flex-row items-center gap-2">
+              <View className="w-2 h-2 rounded-full bg-green-500" />
+              <Text className="text-green-600 dark:text-green-400 font-semibold text-[14px]">
                 Connected as {config.mal.username}
               </Text>
             </View>
             {config.lastSyncAt && (
-              <Text className="text-sm text-muted-foreground">
+              <Text className="text-xs text-muted-foreground">
                 Last sync:{" "}
                 {new Date(config.lastSyncAt).toLocaleString()}
               </Text>
             )}
           </View>
         ) : (
-          <View className="bg-yellow-500/20 px-3 py-2 rounded-md">
-            <Text className="text-yellow-600 dark:text-yellow-400 font-medium">
+          <View className="bg-amber-500/15 px-3 py-2.5 rounded-xl flex-row items-center gap-2">
+            <View className="w-2 h-2 rounded-full bg-amber-500" />
+            <Text className="text-amber-600 dark:text-amber-400 font-semibold text-[14px]">
               Not connected
             </Text>
           </View>
@@ -183,11 +188,11 @@ export default function ConfigScreen() {
 
       {/* Backend Status */}
       {backendReady === false && (
-        <View className="bg-red-500/20 p-4 rounded-lg mb-4 border border-red-500/30">
-          <Text className="text-red-600 dark:text-red-400 font-medium mb-1">
+        <View className="bg-destructive/10 p-4 rounded-[20px] mb-3 border border-destructive/20">
+          <Text className="text-destructive font-bold text-[14px] mb-1">
             Backend Not Configured
           </Text>
-          <Text className="text-sm text-red-600 dark:text-red-400">
+          <Text className="text-[13px] leading-5 text-muted-foreground">
             The Kujira backend needs to be configured with MAL credentials.
             Contact the app administrator.
           </Text>
@@ -196,17 +201,18 @@ export default function ConfigScreen() {
 
       {/* Connection Actions */}
       {!authenticated ? (
-        <View className="bg-card p-4 rounded-lg mb-4 border border-border">
-          <Text className="text-lg font-semibold text-foreground mb-2">
+        <View className="bg-card p-5 rounded-[20px] mb-3 border border-border/60">
+          <Text className="text-[15px] font-bold text-foreground mb-1.5">
             Connect Account
           </Text>
-          <Text className="text-sm text-muted-foreground mb-3">
+          <Text className="text-[13px] leading-5 text-muted-foreground mb-4">
             Connect your MyAnimeList account to sync your watch history and library.
             No API credentials needed - Kujira handles everything!
           </Text>
           <Button
             onPress={handleConnectMAL}
             disabled={authenticating || backendReady === false}
+            className="h-12 rounded-2xl"
           >
             {authenticating ? (
               <ActivityIndicator color="white" />
@@ -218,19 +224,20 @@ export default function ConfigScreen() {
       ) : (
         <>
           {/* Manual Sync Section */}
-          <View className="bg-card p-4 rounded-lg mb-4 border border-border">
-            <Text className="text-lg font-semibold text-foreground mb-3">
+          <View className="bg-card p-5 rounded-[20px] mb-3 border border-border/60">
+            <Text className="text-[15px] font-bold text-foreground mb-1">
               Manual Sync
             </Text>
-            <Text className="text-sm text-muted-foreground mb-3">
+            <Text className="text-[13px] text-muted-foreground mb-4">
               Sync your local data to MyAnimeList
             </Text>
 
-            <View className="gap-y-2">
+            <View className="gap-y-2.5">
               <Button
                 onPress={handleSyncHistory}
                 disabled={syncing}
                 variant="outline"
+                className="h-12 rounded-2xl"
               >
                 {syncing ? (
                   <ActivityIndicator />
@@ -243,6 +250,7 @@ export default function ConfigScreen() {
                 onPress={handleSyncLibrary}
                 disabled={syncing}
                 variant="outline"
+                className="h-12 rounded-2xl"
               >
                 {syncing ? (
                   <ActivityIndicator />
@@ -251,7 +259,7 @@ export default function ConfigScreen() {
                 )}
               </Button>
 
-              <Button onPress={handleSyncAll} disabled={syncing}>
+              <Button onPress={handleSyncAll} disabled={syncing} className="h-12 rounded-2xl">
                 {syncing ? (
                   <ActivityIndicator color="white" />
                 ) : (
@@ -261,20 +269,21 @@ export default function ConfigScreen() {
             </View>
 
             {syncing && (
-              <Text className="text-sm text-muted-foreground mt-2 text-center">
+              <Text className="text-[13px] text-muted-foreground mt-3 text-center">
                 Syncing... This may take a while
               </Text>
             )}
           </View>
 
           {/* Disconnect Section */}
-          <View className="bg-card p-4 rounded-lg mb-4 border border-border">
-            <Text className="text-lg font-semibold text-foreground mb-3">
+          <View className="bg-card p-5 rounded-[20px] mb-3 border border-border/60">
+            <Text className="text-[15px] font-bold text-foreground mb-3">
               Disconnect
             </Text>
             <Button
               onPress={handleDisconnect}
               variant="destructive"
+              className="h-12 rounded-2xl"
             >
               <Text>Disconnect MyAnimeList</Text>
             </Button>
@@ -283,8 +292,8 @@ export default function ConfigScreen() {
       )}
 
       {/* Info Section */}
-      <View className="bg-card p-4 rounded-lg mb-4 border border-border">
-        <Text className="text-sm text-muted-foreground">
+      <View className="bg-secondary/60 p-4 rounded-[20px] mb-4 border border-border/40">
+        <Text className="text-[13px] leading-5 text-muted-foreground">
           Auto-sync is enabled by default. Your watch history and library
           changes will be automatically synced to MyAnimeList when you watch
           episodes or update your library.

@@ -342,15 +342,15 @@ export default function EpisodeScreen() {
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center bg-background">
-                <ActivityIndicator size="large" />
+                <ActivityIndicator size="large" color="#8B5CF6" />
             </View>
         );
     }
 
     if (error || !details) {
         return (
-            <View className="flex-1 justify-center items-center bg-background">
-                <Text className="text-destructive">
+            <View className="flex-1 justify-center items-center bg-background px-8">
+                <Text className="text-destructive text-center text-[15px]">
                     {error || "Could not load details"}
                 </Text>
             </View>
@@ -358,31 +358,32 @@ export default function EpisodeScreen() {
     }
 
     return (
-        <ScrollView className="flex-1 bg-background">
+        <ScrollView className="flex-1 bg-background" contentContainerClassName="pb-10">
             {/* Episode hero */}
-            <View className="w-full h-56">
+            <View className="w-full h-[240px]">
                 <ImageBackground
                     source={getImageSource(animeImage, provider)}
-                    className="w-full h-full justify-end bg-secondary"
+                    className="w-full h-full justify-end bg-secondary dark:bg-white/5"
                 >
                     <LinearGradient
-                        colors={["transparent", "rgba(0,0,0,0.85)"]}
+                        colors={["transparent", "rgba(0,0,0,0.6)", "rgba(0,0,0,0.92)"]}
+                        locations={[0, 0.55, 1]}
                         style={{
-                            paddingHorizontal: 24,
+                            paddingHorizontal: 20,
                             paddingTop: 60,
-                            paddingBottom: 20,
+                            paddingBottom: 18,
                         }}
                     >
                         {animeTitle && (
                             <Text
-                                className="text-white/80 text-sm font-medium"
+                                className="text-white/70 text-[12px] font-semibold uppercase tracking-[1px]"
                                 numberOfLines={1}
                             >
                                 {animeTitle}
                             </Text>
                         )}
                         <Text
-                            className="text-white text-2xl font-bold leading-tight"
+                            className="text-white text-[22px] font-extrabold leading-[26px] tracking-tight mt-1"
                             numberOfLines={2}
                         >
                             {details.title} - {details.numberEpisode}
@@ -391,18 +392,18 @@ export default function EpisodeScreen() {
                 </ImageBackground>
             </View>
 
-            <View className="p-6">
+            <View className="px-5 pt-4">
                 {/* Go to anime details */}
                 <Button
                     variant="outline"
-                    className="w-full mb-6 flex-row gap-2"
+                    className="w-full mb-5 h-12 rounded-2xl flex-row gap-2"
                     onPress={goToAnimeDetails}
                 >
                     <Info size={18} className="text-foreground" />
                     <Text>Ver anime</Text>
                 </Button>
 
-                <Text className="text-lg font-semibold text-foreground mb-3">
+                <Text className="text-[15px] font-bold text-foreground mb-3">
                     Servidores disponibles
                 </Text>
                 <View className="gap-y-4">
@@ -426,12 +427,12 @@ export default function EpisodeScreen() {
                             return a.localeCompare(b);
                         });
                         return orderedLangs.map((lang) => (
-                            <View key={lang} className="gap-y-2">
+                            <View key={lang} className="gap-y-2.5">
                                 <View
-                                    className={`self-start px-2.5 py-1 rounded-full ${lang === "DUB" ? "bg-purple-500/15" : "bg-blue-500/15"}`}
+                                    className={`self-start px-3 py-1 rounded-full ${lang === "DUB" ? "bg-[#8B5CF6]/15 dark:bg-[#8B5CF6]/25" : "bg-sky-500/15"}`}
                                 >
                                     <Text
-                                        className={`text-xs font-bold tracking-wide ${lang === "DUB" ? "text-purple-600" : "text-blue-600"}`}
+                                        className={`text-[11px] font-extrabold tracking-[1px] ${lang === "DUB" ? "text-[#5B21B6] dark:text-[#C4B5FD]" : "text-sky-600 dark:text-sky-300"}`}
                                     >
                                         {lang}
                                     </Text>
@@ -447,31 +448,33 @@ export default function EpisodeScreen() {
                                                 disabled={!isPressable}
                                                 className={
                                                     isPressable
-                                                        ? "active:opacity-70"
+                                                        ? "active:opacity-70 active:scale-[0.99]"
                                                         : "opacity-40"
                                                 }
                                             >
-                                                <Card className="flex-row items-center p-4 rounded-xl border-border">
-                                                    <Server
-                                                        size={20}
-                                                        className="text-muted-foreground"
-                                                    />
-                                                    <Text className="flex-1 ml-3 text-foreground font-medium">
+                                                <Card className="flex-row items-center p-4 rounded-[18px] border-border/60">
+                                                    <View className="w-9 h-9 rounded-full bg-secondary dark:bg-white/10 items-center justify-center">
+                                                        <Server
+                                                            size={17}
+                                                            className="text-muted-foreground"
+                                                        />
+                                                    </View>
+                                                    <Text className="flex-1 ml-3 text-foreground text-[14px] font-semibold" numberOfLines={1}>
                                                         {server.name}
                                                     </Text>
                                                     {isPressable && (
                                                         <View
-                                                            className={`mr-2 px-2 py-0.5 rounded-full ${
+                                                            className={`mr-2 px-2.5 py-1 rounded-full ${
                                                                 external
                                                                     ? "bg-green-500/15"
                                                                     : "bg-amber-500/15"
                                                             }`}
                                                         >
                                                             <Text
-                                                                className={`text-[11px] font-medium ${
+                                                                className={`text-[11px] font-bold ${
                                                                     external
-                                                                        ? "text-green-600"
-                                                                        : "text-amber-600"
+                                                                        ? "text-green-600 dark:text-green-400"
+                                                                        : "text-amber-600 dark:text-amber-400"
                                                                 }`}
                                                             >
                                                                 {external
@@ -482,7 +485,7 @@ export default function EpisodeScreen() {
                                                     )}
                                                     {isPressable && (
                                                         <ChevronRight
-                                                            size={20}
+                                                            size={18}
                                                             className="text-muted-foreground"
                                                         />
                                                     )}
@@ -503,18 +506,18 @@ export default function EpisodeScreen() {
                 transparent
                 animationType="fade"
             >
-                <View className="flex-1 justify-center items-center bg-black/50 p-4">
-                    <View className="bg-card p-6 rounded-2xl w-full max-w-sm border border-border">
-                        <Text className="text-lg font-bold text-foreground text-center">
+                <View className="flex-1 justify-center items-center bg-black/70 p-5">
+                    <View className="bg-card p-6 rounded-[24px] w-full max-w-sm border border-border/60 shadow-xl shadow-black/40">
+                        <Text className="text-[17px] font-extrabold tracking-tight text-foreground text-center">
                             Seleccionar reproductor
                         </Text>
-                        <Text className="text-sm text-muted-foreground text-center mb-5">
+                        <Text className="text-[13px] text-muted-foreground text-center mt-1 mb-5">
                             ¿Cómo quieres ver este episodio?
                         </Text>
-                        <View className="gap-y-2">
+                        <View className="gap-y-2.5">
                             <Button
                                 onPress={handleInternalPlay}
-                                className="flex-row gap-2"
+                                className="flex-row gap-2 h-12 rounded-2xl"
                             >
                                 <Monitor
                                     size={18}
@@ -525,7 +528,7 @@ export default function EpisodeScreen() {
                             <Button
                                 onPress={handleExternalPlay}
                                 variant="secondary"
-                                className="flex-row gap-2"
+                                className="flex-row gap-2 h-12 rounded-2xl"
                             >
                                 <ExternalLink
                                     size={18}
@@ -536,7 +539,7 @@ export default function EpisodeScreen() {
                         </View>
                         {selectedServer &&
                             !isExternalSupported(selectedServer.name) && (
-                                <Text className="text-xs text-amber-600 text-center mt-3">
+                                <Text className="text-xs text-amber-600 dark:text-amber-400 text-center mt-3 leading-4">
                                     {selectedServer.name} solo funciona en el
                                     reproductor interno.
                                 </Text>
@@ -544,7 +547,7 @@ export default function EpisodeScreen() {
                         <Button
                             onPress={closeOptionModal}
                             variant="ghost"
-                            className="mt-4"
+                            className="mt-3 h-11 rounded-2xl"
                         >
                             <Text>Cancelar</Text>
                         </Button>
@@ -607,45 +610,45 @@ export default function EpisodeScreen() {
                     {videoSource && (
                         <View className="absolute top-0 left-0 right-0">
                             <LinearGradient
-                                colors={["rgba(0,0,0,0.6)", "transparent"]}
+                                colors={["rgba(0,0,0,0.65)", "transparent"]}
                                 style={{
                                     flexDirection: "row",
                                     alignItems: "center",
                                     justifyContent: "space-between",
                                     paddingHorizontal: 16,
-                                    paddingTop: 40,
-                                    paddingBottom: 24,
+                                    paddingTop: 44,
+                                    paddingBottom: 28,
                                 }}
                             >
                                 <TouchableOpacity
-                                    className="bg-black/50 rounded-full p-2"
+                                    className="bg-black/60 border border-white/15 rounded-full p-2.5"
                                     onPress={toggleOrientation}
                                 >
                                     {isLandscape ? (
-                                        <Minimize size={24} color="white" />
+                                        <Minimize size={20} color="white" />
                                     ) : (
-                                        <Maximize size={24} color="white" />
+                                        <Maximize size={20} color="white" />
                                     )}
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    className="flex-row items-center gap-1 bg-black/50 rounded-full px-3 py-2"
+                                    className="flex-row items-center gap-1.5 bg-[#7C3AED] rounded-full px-4 py-2.5"
                                     onPress={() => seekBy(85)}
                                 >
-                                    <SkipForward size={18} color="white" />
-                                    <Text className="text-white text-xs font-medium">
+                                    <SkipForward size={16} color="white" />
+                                    <Text className="text-white text-xs font-bold">
                                         Saltar intro
                                     </Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    className="bg-black/50 rounded-full p-2"
+                                    className="bg-black/60 border border-white/15 rounded-full p-2.5"
                                     onPress={() => {
                                         setVideoPlayerVisible(false);
                                         setVideoSource(null);
                                     }}
                                 >
-                                    <X size={24} color="white" />
+                                    <X size={20} color="white" />
                                 </TouchableOpacity>
                             </LinearGradient>
                         </View>

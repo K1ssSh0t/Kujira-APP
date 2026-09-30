@@ -148,29 +148,30 @@ export default function AnimeDetailsScreen() {
   ];
 
   return (
-    <View className="flex-1 bg-card">
+    <View className="flex-1 bg-background">
 
       {loading || !details ? (
         <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color="#8B5CF6" />
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-10">
           {/* Cinematic hero */}
-          <View className="w-full h-80">
+          <View className="w-full h-[400px]">
             <ImageBackground
               source={getImageSource(details.img, provider as string)}
-              className="w-full h-full justify-end bg-secondary"
+              className="w-full h-full justify-end bg-secondary dark:bg-white/5"
             >
               <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.4)', cardColor]}
-                style={{ paddingHorizontal: 16, paddingTop: 80, paddingBottom: 16 }}
+                colors={['transparent', 'rgba(0,0,0,0.45)', cardColor]}
+                locations={[0, 0.55, 1]}
+                style={{ paddingHorizontal: 20, paddingTop: 100, paddingBottom: 18 }}
               >
-                <Text className="text-white text-3xl font-bold leading-tight" numberOfLines={3}>
+                <Text className="text-white text-[28px] font-extrabold leading-[32px] tracking-tight" numberOfLines={3}>
                   {details.title}
                 </Text>
                 {details.genres?.length > 0 && (
-                  <Text className="text-white/70 text-xs uppercase tracking-wide mt-2">
+                  <Text className="text-white/70 text-[11px] font-semibold uppercase tracking-[1.5px] mt-2">
                     {[...new Set(details.genres)].slice(0, 3).join('  •  ')}
                   </Text>
                 )}
@@ -178,11 +179,11 @@ export default function AnimeDetailsScreen() {
             </ImageBackground>
           </View>
 
-          <View className="p-4">
+          <View className="px-5 pt-1">
             {/* Primary CTA */}
             {details.episodes.length > 0 && (
               <Button
-                className="w-full mb-5 flex-row gap-2"
+                className="w-full mb-5 h-12 rounded-2xl flex-row gap-2"
                 onPress={() => handleEpisodePress(details.episodes[0].url)}
               >
                 <Play size={18} className="text-primary-foreground" />
@@ -192,25 +193,25 @@ export default function AnimeDetailsScreen() {
 
             {/* Watchlist Controls */}
             <View className="mb-5">
-              <Text className="text-lg font-semibold mb-2">Mi biblioteca</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
+              <Text className="text-[15px] font-bold mb-2.5">Mi biblioteca</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="flex-row gap-2 pr-4">
                 {statuses.map((s) => {
                   const active = watchStatus === s.value;
                   return (
                     <TouchableOpacity
                       key={s.value}
                       onPress={() => handleStatusChange(s.value)}
-                      className={`flex-row items-center px-4 py-2 rounded-full border ${active
-                        ? 'bg-primary border-primary'
-                        : 'bg-background border-border'
-                        } mr-2`}
+                      className={`flex-row items-center px-4 py-2.5 rounded-full border ${active
+                        ? 'bg-[#7C3AED] border-[#7C3AED]'
+                        : 'bg-card border-border'
+                        } mr-0`}
                       activeOpacity={0.7}
                     >
                       {active && (
-                        <Check size={14} className="text-primary-foreground mr-1" />
+                        <Check size={14} color="white" className="mr-1" />
                       )}
                       <Text
-                        className={active ? 'text-primary-foreground' : 'text-foreground'}
+                        className={active ? 'text-white text-[13px] font-bold' : 'text-foreground text-[13px] font-medium'}
                       >
                         {s.label}
                       </Text>
@@ -225,34 +226,41 @@ export default function AnimeDetailsScreen() {
               {[...new Set(details.genres)].map((genre, index) => (
                 <View
                   key={`${genre}-${index}`}
-                  className="bg-secondary border border-border px-3 py-1 rounded-full"
+                  className="bg-secondary/70 dark:bg-white/10 px-3 py-1.5 rounded-full"
                 >
-                  <Text className="text-secondary-foreground text-xs">{genre}</Text>
+                  <Text className="text-secondary-foreground text-xs font-medium">{genre}</Text>
                 </View>
               ))}
             </View>
 
             {/* Synopsis */}
-            <Text className="text-lg font-semibold mb-2">Sinopsis</Text>
-            <Text className="text-base text-muted-foreground leading-relaxed mb-6">
+            <Text className="text-[15px] font-bold mb-1.5">Sinopsis</Text>
+            <Text className="text-[14px] text-muted-foreground leading-6 mb-6">
               {details.synopsis}
             </Text>
 
             {/* Episodes */}
             <View className="flex-row items-baseline gap-2 mb-3">
-              <Text className="text-xl font-bold">Episodios</Text>
-              <Text className="text-sm text-muted-foreground">
-                {details.episodes.length}
-              </Text>
+              <Text className="text-xl font-extrabold tracking-tight">Episodios</Text>
+              <View className="px-2 py-0.5 rounded-full bg-[#8B5CF6]/15 dark:bg-[#8B5CF6]/25">
+                <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD]">
+                  {details.episodes.length}
+                </Text>
+              </View>
             </View>
+            {details.episodes.length === 0 && (
+              <Text className="text-[14px] text-muted-foreground leading-6 mb-2">
+                Episodes will appear here once available.
+              </Text>
+            )}
             {details.episodes.map((ep) => (
               <Pressable
                 key={ep.url}
                 onPress={() => handleEpisodePress(ep.url)}
                 className="active:opacity-70"
               >
-                <Card className="flex-row items-center p-2 mb-2 rounded-xl border-border">
-                  <View className="w-24 h-16 rounded-lg overflow-hidden bg-secondary items-center justify-center">
+                <Card className="flex-row items-center p-2.5 mb-2 rounded-[18px] border-border/60">
+                  <View className="w-24 h-16 rounded-xl overflow-hidden bg-secondary dark:bg-white/10 items-center justify-center">
                     {details.img ? (
                       <ImageBackground
                         source={getImageSource(details.img, provider as string)}
@@ -262,11 +270,11 @@ export default function AnimeDetailsScreen() {
                       <ImageIcon size={20} className="text-muted-foreground" />
                     )}
                   </View>
-                  <Text className="flex-1 ml-3 text-foreground font-medium" numberOfLines={2}>
+                  <Text className="flex-1 ml-3 text-foreground text-[14px] font-medium" numberOfLines={2}>
                     {ep.name}
                   </Text>
-                  <View className="w-9 h-9 rounded-full bg-primary items-center justify-center ml-2">
-                    <Play size={16} className="text-primary-foreground" />
+                  <View className="w-9 h-9 rounded-full bg-[#7C3AED] items-center justify-center ml-2 shadow-sm shadow-black/20">
+                    <Play size={15} color="white" />
                   </View>
                 </Card>
               </Pressable>
