@@ -358,7 +358,7 @@ export default function EpisodeScreen() {
     }
 
     return (
-        <ScrollView className="flex-1 bg-background" contentContainerClassName="pb-10">
+        <ScrollView className="flex-1 bg-background" contentContainerClassName="pb-10" showsVerticalScrollIndicator={false}>
             {/* Episode hero */}
             <View className="w-full h-[240px]">
                 <ImageBackground

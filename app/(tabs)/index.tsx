@@ -255,6 +255,7 @@ export default function Screen() {
                     contentContainerClassName="gap-1 pt-1 pb-32"
                     numColumns={2}
                     key={provider}
+                    showsVerticalScrollIndicator={false}
                 />
             )}
         </View>

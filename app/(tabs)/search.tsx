@@ -145,6 +145,7 @@ export default function Screen() {
                     data={results}
                     keyExtractor={(item) => item.url}
                     contentContainerClassName="pt-1 pb-32"
+                    showsVerticalScrollIndicator={false}
                     renderItem={({ item }) => (
                         <TouchableOpacity
                             onPress={() => handleAnimePress(item)}

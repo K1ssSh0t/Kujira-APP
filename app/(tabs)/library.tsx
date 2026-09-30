@@ -127,6 +127,7 @@ export default function LibraryScreen() {
                     data={filteredList}
                     keyExtractor={(item) => item.animeId}
                     contentContainerClassName="pb-32"
+                    showsVerticalScrollIndicator={false}
                     renderItem={({ item }) => (
                         <TouchableOpacity
                             className="flex-row items-center mb-2.5 p-2.5 bg-card border border-border/60 rounded-[18px]"

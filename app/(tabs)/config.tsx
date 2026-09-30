@@ -148,7 +148,7 @@ export default function ConfigScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-background" contentContainerClassName="p-4 pb-32">
+    <ScrollView className="flex-1 bg-background" contentContainerClassName="p-4 pb-32" showsVerticalScrollIndicator={false}>
       <Text className="text-[28px] font-extrabold tracking-tight text-foreground">
         MyAnimeList Sync
       </Text>
