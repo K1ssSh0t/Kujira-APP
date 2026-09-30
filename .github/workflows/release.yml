@@ -50,6 +50,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # 'tools' is obsolete and was removed from Google's repo (sdkmanager
+          # fails with "Failed to find package 'tools'"). Override the action
+          # defaults to install only what the build needs.
+          packages: platform-tools
 
       - name: Build Android Release APK
         run: |
