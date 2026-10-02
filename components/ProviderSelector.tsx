@@ -24,11 +24,13 @@ const PROVIDERS: { id: Provider; name: string }[] = [
 interface ProviderSelectorProps {
     provider: Provider;
     onProviderChange: (provider: Provider) => void;
+    compact?: boolean;
 }
 
 export function ProviderSelector({
     provider,
     onProviderChange,
+    compact = false,
 }: ProviderSelectorProps) {
     const [modalVisible, setModalVisible] = React.useState(false);
     const { isDarkColorScheme } = useColorScheme();
@@ -40,6 +42,69 @@ export function ProviderSelector({
         onProviderChange(selectedProviderId);
         setModalVisible(false);
     };
+
+    if (compact) {
+        return (
+            <View className="shrink-0">
+                <Button
+                    variant="secondary"
+                    onPress={() => setModalVisible(true)}
+                    className="flex-row items-center h-9 rounded-full border border-border px-3 gap-1.5 native:h-9 native:px-3 native:py-0"
+                >
+                    <Text className="text-[13px] font-semibold">{selectedProvider?.name || "Proveedor"}</Text>
+                    <ChevronDown
+                        color={isDarkColorScheme ? "white" : "black"}
+                        size={14}
+                    />
+                </Button>
+
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={modalVisible}
+                    onRequestClose={() => {
+                        setModalVisible(!modalVisible);
+                    }}
+                >
+                    <Pressable
+                        onPress={() => setModalVisible(false)}
+                        className="flex-1 justify-center items-center bg-black/70 px-8"
+                        style={{
+                            paddingTop: StatusBar.currentHeight,
+                        }}
+                    >
+                        <Pressable
+                            onPress={() => { }} // Prevent closing modal when clicking inside the card
+                            className="w-full bg-card rounded-3xl p-2 border border-border shadow-xl shadow-black/30"
+                        >
+                            {PROVIDERS.map((p) => (
+                                <TouchableOpacity
+                                    key={p.id}
+                                    onPress={() => handleSelect(p.id)}
+                                    className={cn(
+                                        "px-4 py-3.5 rounded-2xl flex-row items-center justify-between",
+                                        provider === p.id && "bg-primary/15",
+                                    )}
+                                >
+                                    <Text
+                                        className={cn(
+                                            "text-center text-[15px]",
+                                            provider === p.id ? "font-bold text-foreground" : "font-medium text-foreground"
+                                        )}
+                                    >
+                                        {p.name}
+                                    </Text>
+                                    {provider === p.id && (
+                                        <View className="w-2 h-2 rounded-full bg-primary" />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </Pressable>
+                    </Pressable>
+                </Modal>
+            </View>
+        );
+    }
 
     return (
         <View className="mb-3">

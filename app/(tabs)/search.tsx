@@ -104,17 +104,24 @@ export default function Screen() {
     };
 
     return (
-        <View className="flex-1 px-4 pt-5 bg-background">
-            <Text className="text-[28px] font-extrabold tracking-tight text-foreground">Search</Text>
-            <Text className="text-[13px] text-muted-foreground mt-0.5 mb-3">
-                {results.length > 0 && !loading ? `${results.length} results` : "Explore by title"}
-            </Text>
-            <ProviderSelector
-                provider={provider}
-                onProviderChange={handleProviderChange}
-            />
+        <View className="flex-1 px-4 pt-2 bg-background">
+            <View className="flex-row items-center justify-between mb-2 gap-2">
+                <View className="flex-row items-center gap-2 flex-1">
+                    <Text className="text-[22px] font-extrabold tracking-tight text-foreground">Search</Text>
+                    <View className="px-2 py-1 rounded-full bg-[#8B5CF6]/12 dark:bg-[#8B5CF6]/20">
+                        <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD]">
+                            {results.length > 0 && !loading ? `${results.length} results` : "Explore"}
+                        </Text>
+                    </View>
+                </View>
+                <ProviderSelector
+                    provider={provider}
+                    onProviderChange={handleProviderChange}
+                    compact
+                />
+            </View>
 
-            <View className="relative mb-3">
+            <View className="relative mb-2">
                 <View className="absolute left-4 top-0 bottom-0 justify-center z-10" pointerEvents="none">
                     <Search size={18} color={isDarkColorScheme ? "#A1A1AA" : "#636366"} />
                 </View>
@@ -132,9 +139,9 @@ export default function Screen() {
             {loading ? (
                 <ActivityIndicator size="large" className="flex-1" color="#8B5CF6" />
             ) : results.length === 0 ? (
-                <View className="flex-1 justify-center items-center gap-3 px-8 pb-24">
-                    <View className="w-16 h-16 rounded-full bg-secondary dark:bg-white/10 items-center justify-center">
-                        <SearchX size={28} color="#7C3AED" />
+                <View className="flex-1 justify-start items-center gap-3 px-8 pt-16">
+                    <View className="w-14 h-14 rounded-full bg-secondary dark:bg-white/10 items-center justify-center">
+                        <SearchX size={24} color="#7C3AED" />
                     </View>
                     <Text className="text-muted-foreground text-center text-[15px] leading-6">
                         {search ? `No results for "${search}".` : "Type a title above to start searching."}

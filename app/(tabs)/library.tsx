@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
     View,
     FlatList,
@@ -69,6 +69,16 @@ export default function LibraryScreen() {
         { label: "Dropped", value: "dropped" },
     ];
 
+    const counts = useMemo(() => {
+        const c: Record<string, number> = { all: watchlist.length };
+        for (const item of watchlist) {
+            c[item.status] = (c[item.status] ?? 0) + 1;
+        }
+        return c;
+    }, [watchlist]);
+
+    const activeFilterLabel = filters.find((f) => f.value === filter)?.label ?? "";
+
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center bg-background">
@@ -78,41 +88,58 @@ export default function LibraryScreen() {
     }
 
     return (
-        <View className="flex-1 bg-background px-4 pt-5">
-            <Text className="text-[28px] font-extrabold tracking-tight text-foreground">Library</Text>
-            <Text className="text-[13px] text-muted-foreground mt-0.5 mb-4">
-                {watchlist.length} títulos guardados
-            </Text>
+        <View className="flex-1 bg-background px-4 pt-2">
+            <View className="flex-row items-center gap-2">
+                <Text className="text-[22px] font-extrabold tracking-tight text-foreground">Library</Text>
+                <View className="px-2 py-1 rounded-full bg-[#8B5CF6]/12 dark:bg-[#8B5CF6]/20">
+                    <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD]">
+                        {filter === "all"
+                            ? `${watchlist.length} saved`
+                            : `${filteredList.length} of ${watchlist.length} · ${activeFilterLabel}`}
+                    </Text>
+                </View>
+            </View>
 
             {/* Filter Chips */}
-            <View className="mb-4 -mx-4">
+            <View className="mt-2 mb-3 -mx-4">
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerClassName="flex-row gap-2 px-4"
                 >
-                    {filters.map((f) => (
-                        <TouchableOpacity
-                            key={f.value}
-                            onPress={() => setFilter(f.value)}
-                            className={cn(
-                                "px-4 py-2.5 rounded-full border mr-0",
-                                filter === f.value
-                                    ? "bg-[#7C3AED] border-[#7C3AED]"
-                                    : "bg-card border-border"
-                            )}
-                            activeOpacity={0.7}
-                        >
-                            <Text
+                    {filters.map((f) => {
+                        const count = counts[f.value] ?? (f.value === "all" ? watchlist.length : 0);
+                        return (
+                            <TouchableOpacity
+                                key={f.value}
+                                onPress={() => setFilter(f.value)}
                                 className={cn(
-                                    "text-[13px]",
-                                    filter === f.value ? "text-white font-bold" : "text-foreground font-medium"
+                                    "px-3.5 py-2 rounded-full border mr-0 flex-row items-center gap-1.5",
+                                    filter === f.value
+                                        ? "bg-[#7C3AED] border-[#7C3AED]"
+                                        : "bg-card border-border"
                                 )}
+                                activeOpacity={0.7}
                             >
-                                {f.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
+                                <Text
+                                    className={cn(
+                                        "text-[13px]",
+                                        filter === f.value ? "text-white font-bold" : "text-foreground font-medium"
+                                    )}
+                                >
+                                    {f.label}
+                                </Text>
+                                <Text
+                                    className={cn(
+                                        "text-[11px] font-bold",
+                                        filter === f.value ? "text-white/80" : "text-muted-foreground"
+                                    )}
+                                >
+                                    {count}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </ScrollView>
             </View>
 

@@ -212,15 +212,22 @@ export default function Screen() {
     );
 
     return (
-        <View className="flex-1 px-3 pt-5 bg-background">
-            <Text className="text-[28px] font-extrabold tracking-tight text-foreground px-1">Latest</Text>
-            <Text className="text-[13px] text-muted-foreground mt-0.5 mb-3 px-1">
-                {!loading && !error && data.length > 0 ? `${data.length} fresh episodes` : "Fresh episodes"}
-            </Text>
-            <ProviderSelector
-                provider={provider}
-                onProviderChange={setProvider}
-            />
+        <View className="flex-1 px-3 pt-2 bg-background">
+            <View className="flex-row items-center justify-between px-1 mb-2 gap-2">
+                <View className="flex-row items-center gap-2 flex-1">
+                    <Text className="text-[22px] font-extrabold tracking-tight text-foreground">Latest</Text>
+                    <View className="px-2 py-1 rounded-full bg-[#8B5CF6]/12 dark:bg-[#8B5CF6]/20">
+                        <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD]">
+                            {!loading && !error && data.length > 0 ? `${data.length} fresh` : "Fresh"}
+                        </Text>
+                    </View>
+                </View>
+                <ProviderSelector
+                    provider={provider}
+                    onProviderChange={setProvider}
+                    compact
+                />
+            </View>
 
             {loading ? (
                 renderSkeleton()
@@ -252,7 +259,7 @@ export default function Screen() {
                     keyExtractor={(item, index) =>
                         `${provider}-${item.title}-${index}`
                     }
-                    contentContainerClassName="gap-1 pt-1 pb-32"
+                    contentContainerClassName="gap-1 pt-0 pb-32"
                     numColumns={2}
                     key={provider}
                     showsVerticalScrollIndicator={false}
