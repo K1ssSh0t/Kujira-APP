@@ -1,13 +1,14 @@
 import * as React from "react";
 import {
     View,
-    FlatList,
     ImageBackground,
     Pressable,
     TouchableOpacity,
     Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import Reanimated from "react-native-reanimated";
+import { useHideOnScroll } from "~/lib/useHideOnScroll";
 import { Card, CardTitle } from "~/components/ui/card";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
@@ -82,6 +83,12 @@ export default function Screen() {
     const [data, setData] = React.useState<Anime[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
+    const { scrollHandler, headerStyle, onHeaderLayout, reset } =
+        useHideOnScroll(60);
+
+    React.useEffect(() => {
+        reset();
+    }, [provider, reset]);
 
     React.useEffect(() => {
         const fetchData = async () => {
@@ -213,21 +220,26 @@ export default function Screen() {
 
     return (
         <View className="flex-1 px-3 pt-2 bg-background">
-            <View className="flex-row items-center justify-between px-1 mb-2 gap-2">
-                <View className="flex-row items-center gap-2 flex-1">
-                    <Text className="text-[22px] font-extrabold tracking-tight text-foreground">Latest</Text>
-                    <View className="px-2 py-1 rounded-full bg-[#8B5CF6]/12 dark:bg-[#8B5CF6]/20">
-                        <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD]">
-                            {!loading && !error && data.length > 0 ? `${data.length} fresh` : "Fresh"}
-                        </Text>
+            <Reanimated.View style={[{ overflow: "hidden" }, headerStyle]}>
+                <View
+                    onLayout={onHeaderLayout}
+                    className="flex-row items-center justify-between px-1 mb-2 gap-2"
+                >
+                    <View className="flex-row items-center gap-2 flex-1">
+                        <Text className="text-[22px] font-extrabold tracking-tight text-foreground">Latest</Text>
+                        <View className="px-2 py-1 rounded-full bg-[#8B5CF6]/12 dark:bg-[#8B5CF6]/20">
+                            <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD]">
+                                {!loading && !error && data.length > 0 ? `${data.length} fresh` : "Fresh"}
+                            </Text>
+                        </View>
                     </View>
+                    <ProviderSelector
+                        provider={provider}
+                        onProviderChange={setProvider}
+                        compact
+                    />
                 </View>
-                <ProviderSelector
-                    provider={provider}
-                    onProviderChange={setProvider}
-                    compact
-                />
-            </View>
+            </Reanimated.View>
 
             {loading ? (
                 renderSkeleton()
@@ -253,7 +265,7 @@ export default function Screen() {
                     </Text>
                 </View>
             ) : (
-                <FlatList
+                <Reanimated.FlatList
                     data={data}
                     renderItem={renderItem}
                     keyExtractor={(item, index) =>
@@ -263,6 +275,8 @@ export default function Screen() {
                     numColumns={2}
                     key={provider}
                     showsVerticalScrollIndicator={false}
+                    onScroll={scrollHandler}
+                    scrollEventThrottle={16}
                 />
             )}
         </View>

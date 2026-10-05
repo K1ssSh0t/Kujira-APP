@@ -1,12 +1,13 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
     View,
-    FlatList,
     Image,
     ActivityIndicator,
     ScrollView,
     TouchableOpacity,
 } from "react-native";
+import Reanimated from "react-native-reanimated";
+import { useHideOnScroll } from "~/lib/useHideOnScroll";
 import { Text } from "~/components/ui/text";
 import { getWatchlist, WatchlistItem, WatchStatus } from "~/lib/watchlist";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -31,6 +32,8 @@ export default function LibraryScreen() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<WatchStatus | "all">("all");
     const router = useRouter();
+    const { scrollHandler, headerStyle, onHeaderLayout, reset } =
+        useHideOnScroll(120);
 
     useFocusEffect(
         useCallback(() => {
@@ -89,59 +92,63 @@ export default function LibraryScreen() {
 
     return (
         <View className="flex-1 bg-background px-4 pt-2">
-            <View className="flex-row items-center gap-2">
-                <Text className="text-[22px] font-extrabold tracking-tight text-foreground">Library</Text>
-                <View className="px-2 py-1 rounded-full bg-[#8B5CF6]/12 dark:bg-[#8B5CF6]/20">
-                    <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD]">
-                        {filter === "all"
-                            ? `${watchlist.length} saved`
-                            : `${filteredList.length} of ${watchlist.length} · ${activeFilterLabel}`}
-                    </Text>
-                </View>
-            </View>
+            <Reanimated.View style={[{ overflow: "hidden" }, headerStyle]}>
+                <View onLayout={onHeaderLayout}>
+                    <View className="flex-row items-center gap-2">
+                        <Text className="text-[22px] font-extrabold tracking-tight text-foreground">Library</Text>
+                        <View className="px-2 py-1 rounded-full bg-[#8B5CF6]/12 dark:bg-[#8B5CF6]/20">
+                            <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD]">
+                                {filter === "all"
+                                    ? `${watchlist.length} saved`
+                                    : `${filteredList.length} of ${watchlist.length} · ${activeFilterLabel}`}
+                            </Text>
+                        </View>
+                    </View>
 
-            {/* Filter Chips */}
-            <View className="mt-2 mb-3 -mx-4">
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerClassName="flex-row gap-2 px-4"
-                >
-                    {filters.map((f) => {
-                        const count = counts[f.value] ?? (f.value === "all" ? watchlist.length : 0);
-                        return (
-                            <TouchableOpacity
-                                key={f.value}
-                                onPress={() => setFilter(f.value)}
-                                className={cn(
-                                    "px-3.5 py-2 rounded-full border mr-0 flex-row items-center gap-1.5",
-                                    filter === f.value
-                                        ? "bg-[#7C3AED] border-[#7C3AED]"
-                                        : "bg-card border-border"
-                                )}
-                                activeOpacity={0.7}
-                            >
-                                <Text
-                                    className={cn(
-                                        "text-[13px]",
-                                        filter === f.value ? "text-white font-bold" : "text-foreground font-medium"
-                                    )}
-                                >
-                                    {f.label}
-                                </Text>
-                                <Text
-                                    className={cn(
-                                        "text-[11px] font-bold",
-                                        filter === f.value ? "text-white/80" : "text-muted-foreground"
-                                    )}
-                                >
-                                    {count}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
-            </View>
+                    {/* Filter Chips */}
+                    <View className="mt-2 mb-3 -mx-4">
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerClassName="flex-row gap-2 px-4"
+                        >
+                            {filters.map((f) => {
+                                const count = counts[f.value] ?? (f.value === "all" ? watchlist.length : 0);
+                                return (
+                                    <TouchableOpacity
+                                        key={f.value}
+                                        onPress={() => { setFilter(f.value); reset(); }}
+                                        className={cn(
+                                            "px-3.5 py-2 rounded-full border mr-0 flex-row items-center gap-1.5",
+                                            filter === f.value
+                                                ? "bg-[#7C3AED] border-[#7C3AED]"
+                                                : "bg-card border-border"
+                                        )}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text
+                                            className={cn(
+                                                "text-[13px]",
+                                                filter === f.value ? "text-white font-bold" : "text-foreground font-medium"
+                                            )}
+                                        >
+                                            {f.label}
+                                        </Text>
+                                        <Text
+                                            className={cn(
+                                                "text-[11px] font-bold",
+                                                filter === f.value ? "text-white/80" : "text-muted-foreground"
+                                            )}
+                                        >
+                                            {count}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Reanimated.View>
 
             {filteredList.length === 0 ? (
                 <View className="flex-1 justify-center items-center pb-24">
@@ -150,11 +157,13 @@ export default function LibraryScreen() {
                     </Text>
                 </View>
             ) : (
-                <FlatList
+                <Reanimated.FlatList
                     data={filteredList}
                     keyExtractor={(item) => item.animeId}
                     contentContainerClassName="pb-32"
                     showsVerticalScrollIndicator={false}
+                    onScroll={scrollHandler}
+                    scrollEventThrottle={16}
                     renderItem={({ item }) => (
                         <TouchableOpacity
                             className="flex-row items-center mb-2.5 p-2.5 bg-card border border-border/60 rounded-[18px]"

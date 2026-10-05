@@ -1,12 +1,13 @@
 import * as React from "react";
 import {
     View,
-    FlatList,
     ActivityIndicator,
     TouchableOpacity,
     TextInput,
     Image,
 } from "react-native";
+import Reanimated from "react-native-reanimated";
+import { useHideOnScroll } from "~/lib/useHideOnScroll";
 import { Text } from "~/components/ui/text";
 import { useRouter } from "expo-router";
 import { Search, SearchX } from "lucide-react-native";
@@ -44,11 +45,14 @@ export default function Screen() {
     const [results, setResults] = React.useState<Anime[]>([]);
     const [loading, setLoading] = React.useState(false);
     const { isDarkColorScheme } = useColorScheme();
+    const { scrollHandler, headerStyle, onHeaderLayout, reset } =
+        useHideOnScroll(130);
 
     const handleProviderChange = (newProvider: Provider) => {
         setProvider(newProvider);
         setResults([]);
         setSearch("");
+        reset();
     };
 
     const handleSearch = async () => {
@@ -62,6 +66,7 @@ export default function Screen() {
         if (cachedData) {
             setResults(cachedData);
             setLoading(false);
+            reset();
             return;
         }
 
@@ -90,6 +95,7 @@ export default function Screen() {
             console.error(error);
         } finally {
             setLoading(false);
+            reset();
         }
     };
 
@@ -105,36 +111,40 @@ export default function Screen() {
 
     return (
         <View className="flex-1 px-4 pt-2 bg-background">
-            <View className="flex-row items-center justify-between mb-2 gap-2">
-                <View className="flex-row items-center gap-2 flex-1">
-                    <Text className="text-[22px] font-extrabold tracking-tight text-foreground">Search</Text>
-                    <View className="px-2 py-1 rounded-full bg-[#8B5CF6]/12 dark:bg-[#8B5CF6]/20">
-                        <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD]">
-                            {results.length > 0 && !loading ? `${results.length} results` : "Explore"}
-                        </Text>
+            <Reanimated.View style={[{ overflow: "hidden" }, headerStyle]}>
+                <View onLayout={onHeaderLayout}>
+                    <View className="flex-row items-center justify-between mb-2 gap-2">
+                        <View className="flex-row items-center gap-2 flex-1">
+                            <Text className="text-[22px] font-extrabold tracking-tight text-foreground">Search</Text>
+                            <View className="px-2 py-1 rounded-full bg-[#8B5CF6]/12 dark:bg-[#8B5CF6]/20">
+                                <Text className="text-[11px] font-bold text-[#5B21B6] dark:text-[#C4B5FD]">
+                                    {results.length > 0 && !loading ? `${results.length} results` : "Explore"}
+                                </Text>
+                            </View>
+                        </View>
+                        <ProviderSelector
+                            provider={provider}
+                            onProviderChange={handleProviderChange}
+                            compact
+                        />
+                    </View>
+
+                    <View className="relative mb-2">
+                        <View className="absolute left-4 top-0 bottom-0 justify-center z-10" pointerEvents="none">
+                            <Search size={18} color={isDarkColorScheme ? "#A1A1AA" : "#636366"} />
+                        </View>
+                        <TextInput
+                            className="h-12 bg-card border border-border rounded-2xl pl-11 pr-4 text-[15px] text-foreground"
+                            placeholder="Buscar anime..."
+                            placeholderTextColor={isDarkColorScheme ? "#A1A1AA" : "#636366"}
+                            value={search}
+                            onChangeText={setSearch}
+                            onSubmitEditing={handleSearch}
+                            returnKeyType="search"
+                        />
                     </View>
                 </View>
-                <ProviderSelector
-                    provider={provider}
-                    onProviderChange={handleProviderChange}
-                    compact
-                />
-            </View>
-
-            <View className="relative mb-2">
-                <View className="absolute left-4 top-0 bottom-0 justify-center z-10" pointerEvents="none">
-                    <Search size={18} color={isDarkColorScheme ? "#A1A1AA" : "#636366"} />
-                </View>
-                <TextInput
-                    className="h-12 bg-card border border-border rounded-2xl pl-11 pr-4 text-[15px] text-foreground"
-                    placeholder="Buscar anime..."
-                    placeholderTextColor={isDarkColorScheme ? "#A1A1AA" : "#636366"}
-                    value={search}
-                    onChangeText={setSearch}
-                    onSubmitEditing={handleSearch}
-                    returnKeyType="search"
-                />
-            </View>
+            </Reanimated.View>
 
             {loading ? (
                 <ActivityIndicator size="large" className="flex-1" color="#8B5CF6" />
@@ -148,11 +158,13 @@ export default function Screen() {
                     </Text>
                 </View>
             ) : (
-                <FlatList
+                <Reanimated.FlatList
                     data={results}
                     keyExtractor={(item) => item.url}
                     contentContainerClassName="pt-1 pb-32"
                     showsVerticalScrollIndicator={false}
+                    onScroll={scrollHandler}
+                    scrollEventThrottle={16}
                     renderItem={({ item }) => (
                         <TouchableOpacity
                             onPress={() => handleAnimePress(item)}

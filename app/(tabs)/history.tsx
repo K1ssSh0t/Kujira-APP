@@ -1,11 +1,12 @@
 import React, { useCallback, useState } from "react";
 import {
   View,
-  FlatList,
   TouchableOpacity,
   Image,
   ActivityIndicator,
 } from "react-native";
+import Reanimated from "react-native-reanimated";
+import { useHideOnScroll } from "~/lib/useHideOnScroll";
 import { Text } from "~/components/ui/text";
 import { getHistory, HistoryItem } from "~/lib/history";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -28,6 +29,7 @@ export default function HistoryScreen() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { scrollHandler, headerStyle, onHeaderLayout } = useHideOnScroll(80);
 
   useFocusEffect(
     useCallback(() => {
@@ -64,10 +66,14 @@ export default function HistoryScreen() {
 
   return (
     <View className="flex-1 bg-background px-4 pt-5">
-      <Text className="text-[28px] font-extrabold tracking-tight text-foreground">Historial</Text>
-      <Text className="text-[13px] text-muted-foreground mt-0.5 mb-4">
-        {history.length} episodios vistos
-      </Text>
+      <Reanimated.View style={[{ overflow: "hidden" }, headerStyle]}>
+        <View onLayout={onHeaderLayout}>
+          <Text className="text-[28px] font-extrabold tracking-tight text-foreground">Historial</Text>
+          <Text className="text-[13px] text-muted-foreground mt-0.5 mb-4">
+            {history.length} episodios vistos
+          </Text>
+        </View>
+      </Reanimated.View>
       {history.length === 0 ? (
         <View className="flex-1 justify-center items-center pb-24">
           <Text className="text-[15px] text-muted-foreground text-center">
@@ -75,11 +81,13 @@ export default function HistoryScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
+        <Reanimated.FlatList
           data={history}
           keyExtractor={(item) => item.episodeId}
           contentContainerClassName="pb-32"
           showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
           renderItem={({ item }) => (
             <TouchableOpacity
               className="flex-row items-center mb-2.5 p-2.5 bg-card border border-border/60 rounded-[18px]"
