@@ -67,6 +67,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <OledProvider>
+        {/* Global: el chequeo/descarga sigue aunque el usuario no esté en Config. */}
         <UpdaterProvider>
           <RootLayoutContent />
         </UpdaterProvider>

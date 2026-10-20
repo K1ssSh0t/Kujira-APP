@@ -1,3 +1,21 @@
+/**
+ * Descarga e instalación del APK.
+ *
+ * Flujo de descarga:
+ *   1. se limpian APKs viejos y restos `.part`;
+ *   2. se descarga a `<version>.apk.part`;
+ *   3. se verifica que el tamaño coincida con el asset de GitHub;
+ *   4. recién entonces se renombra a `<version>.apk`.
+ *
+ * El paso 4 es importante: si la app muere a mitad de la descarga, el `.part`
+ * nunca se confunde con un APK listo para instalar.
+ *
+ * La instalación usa un FileProvider (`getContentUriAsync`) y el intent
+ * `ACTION_VIEW`. Android siempre muestra su propia pantalla de confirmación.
+ * El permiso `REQUEST_INSTALL_PACKAGES` lo agrega el config plugin
+ * `plugins/withInstallPermission.js` durante el prebuild.
+ */
+
 import * as Application from "expo-application";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
@@ -16,6 +34,7 @@ export class InstallError extends Error {
   }
 }
 
+/** Path final del APK de una versión dentro de la caché de la app. */
 export function getUpdateApkPath(version: string): string {
   if (!FileSystem.cacheDirectory) {
     throw new InstallError(
@@ -25,6 +44,7 @@ export function getUpdateApkPath(version: string): string {
   return `${FileSystem.cacheDirectory}${UPDATE_APK_PREFIX}${version}.apk`;
 }
 
+/** Path temporal mientras la descarga está en curso. */
 function getPartialUpdateApkPath(version: string): string {
   return `${getUpdateApkPath(version)}.part`;
 }
@@ -79,9 +99,15 @@ export async function cleanupOldUpdateApks(keepPath?: string): Promise<void> {
 export type DownloadProgressHandler = (percent: number) => void;
 
 /**
- * Descarga el APK del release a la caché y devuelve el file:// URI.
- * Usa la API legacy de expo-file-system porque es la que expone progreso,
- * cancelación y getContentUriAsync en SDK 54.
+ * Descarga el APK del release a la caché y devuelve el file:// URI final.
+ *
+ * `info.size` viene del asset de GitHub y se usa para detectar descargas
+ * truncadas. Si el servidor no informa tamaño (`0`), se omite esa validación
+ * pero igual se exige un archivo no vacío.
+ *
+ * Usa la API legacy de expo-file-system porque en SDK 54 es la que expone
+ * progreso, `getContentUriAsync` y el manejo de archivos que necesita el
+ * instalador.
  */
 export async function downloadUpdateApk(
   info: UpdateInfo,
@@ -185,8 +211,16 @@ export async function downloadUpdateApk(
 }
 
 /**
- * Abre el instalador de Android. El usuario siempre tiene que confirmar la
- * instalación; Android no permite hacerlo en silencio desde una app normal.
+ * Abre el instalador de Android para un APK ya descargado.
+ *
+ * El APK está en la caché privada, así que se expone mediante el FileProvider
+ * de expo-file-system y se concede permiso de lectura temporal con
+ * `FLAG_GRANT_READ_URI_PERMISSION` (flags: 1). Android no permite instalar en
+ * silencio desde una app normal: el usuario siempre confirma en el instalador.
+ *
+ * Si el archivo desapareció (por ejemplo, porque Android limpió la caché),
+ * se lanza un `InstallError` para que el provider vuelva a ofrecer la
+ * descarga.
  */
 export async function installUpdateApk(apkPath: string): Promise<void> {
   if (Platform.OS !== "android") {
@@ -224,7 +258,13 @@ export async function installUpdateApk(apkPath: string): Promise<void> {
   }
 }
 
-/** Abre los ajustes de "Instalar apps desconocidas" para Kujira. */
+/**
+ * Abre los ajustes de "Instalar apps desconocidas" para Kujira.
+ *
+ * Android 8+ usa una pantalla por app (`MANAGE_UNKNOWN_APP_SOURCES` con
+ * `package:`). En versiones/OEMs que no la soportan se cae a los ajustes
+ * generales. La app no puede conceder este permiso por sí sola.
+ */
 export async function openUnknownSourcesSettings(): Promise<void> {
   if (Platform.OS !== "android") return;
 

@@ -1,3 +1,16 @@
+/**
+ * Acceso a GitHub Releases y comparación de versiones.
+ *
+ * Reglas del contrato con el workflow:
+ * - sólo cuentan tags semver (`vX.Y.Z`); los tags viejos `build-*` se ignoran;
+ * - se descartan drafts y prereleases;
+ * - se elige el release semver más alto que tenga un APK adjunto;
+ * - no se usa token: el repositorio debe ser público.
+ *
+ * El límite de la API sin autenticar es de 60 consultas por hora. El provider
+ * cachea los chequeos exitosos durante 24 h para no acercarse a ese límite.
+ */
+
 import {
   GITHUB_RELEASES_PAGE,
   GITHUB_RELEASES_URL,
@@ -34,6 +47,10 @@ export function parseVersion(value: string): [number, number, number] | null {
   return [Number(match[1]), Number(match[2]), Number(match[3])];
 }
 
+/**
+ * Compara dos versiones semver simples.
+ * Devuelve 1 si `a > b`, -1 si `a < b` y 0 si son iguales o inválidas.
+ */
 export function compareVersions(a: string, b: string): number {
   const left = parseVersion(a);
   const right = parseVersion(b);
@@ -47,10 +64,16 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+/** `true` si `candidate` es una versión semver superior a `current`. */
 export function isNewerVersion(current: string, candidate: string): boolean {
   return compareVersions(candidate, current) > 0;
 }
 
+/**
+ * Elige el APK del release. Se prioriza el nombre exacto que genera el
+ * workflow (`kujira-app-vX.Y.Z.apk`); si no está, se acepta cualquier
+ * `kujira-app-v*.apk` y, como último recurso, otro `.apk`.
+ */
 function pickApkAsset(
   assets: GithubReleaseAsset[],
   version: string,
@@ -74,6 +97,7 @@ function pickApkAsset(
   );
 }
 
+/** Formatea un tamaño en bytes para mostrarlo en la tarjeta. */
 export function formatBytes(bytes: number | undefined | null): string {
   if (!bytes || bytes <= 0) return "";
   const units = ["B", "KB", "MB", "GB"];
@@ -91,6 +115,10 @@ export function formatBytes(bytes: number | undefined | null): string {
 /**
  * Devuelve el release semver más alto que tenga un APK adjunto.
  * Ignora drafts, prereleases y tags viejos tipo "build-<run_id>".
+ *
+ * No cachea: el provider decide cuándo llamar según el intervalo de 24 h.
+ * Un timeout o un error de red se traduce a `UpdaterError` con un mensaje
+ * apto para mostrar en la UI.
  */
 export async function fetchLatestRelease(): Promise<UpdateInfo | null> {
   const controller = new AbortController();

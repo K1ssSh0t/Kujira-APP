@@ -1,3 +1,19 @@
+/**
+ * Tarjeta de Actualizaciones de Config.
+ *
+ * Sólo se muestra en Android instalado (el provider la oculta en Expo Go y en
+ * otras plataformas). Refleja la fase del updater y ofrece la acción principal
+ * según el estado:
+ *
+ * - sin release: buscar actualizaciones;
+ * - disponible/error con release: descargar;
+ * - descargada (`ready`): instalar;
+ * - descargando/chequeando: spinner y acciones deshabilitadas.
+ *
+ * La lógica de red, descarga e instalación vive en `useUpdater`; este
+ * componente es sólo presentación y dispara acciones.
+ */
+
 import {
   AlertCircle,
   CheckCircle2,
@@ -20,6 +36,7 @@ import { formatBytes } from "~/lib/updater/github";
 import { useUpdater } from "~/lib/updater/useUpdater";
 import type { UpdaterPhase } from "~/lib/updater/types";
 
+/** Etiqueta y colores del pill de estado para cada fase. */
 const STATUS: Record<
   UpdaterPhase,
   { label: string; container: string; text: string }
@@ -61,6 +78,7 @@ const STATUS: Record<
   },
 };
 
+/** Limpia el markdown más común para mostrarlo como texto plano. */
 function cleanReleaseNotes(notes: string): string {
   return notes
     .replace(/\r/g, "")
@@ -110,6 +128,7 @@ function SettingToggle({
   );
 }
 
+/** Tarjeta que expone el updater dentro de la pestaña Config. */
 export function UpdateCard() {
   const {
     currentBuild,
@@ -136,10 +155,14 @@ export function UpdateCard() {
 
   const status = STATUS[phase];
   const isBusy = phase === "checking" || phase === "downloading";
+  // El icono de descarga aplica tanto a "descargar" como a "instalar" porque
+  // en ambos casos el APK ya viene de un release.
   const isDownloadAction =
     phase === "ready" ||
     Boolean(release && (phase === "available" || phase === "error"));
   const notes = release?.notes ? cleanReleaseNotes(release.notes) : "";
+  // Sólo mostramos el atajo de ajustes cuando el error está relacionado con el
+  // instalador; para errores de red no aporta.
   const showInstallSettings = Boolean(
     error && /instalador|apps desconocidas/i.test(error),
   );

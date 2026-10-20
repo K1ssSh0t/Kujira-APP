@@ -1,3 +1,14 @@
+# Publica un APK Android como release `vX.Y.Z`.
+#
+# Contrato para que la app pueda actualizarse in-place:
+# - package fijo: com.anonymous.KujiraAPP;
+# - misma firma que el APK instalado;
+# - versionCode creciente (github.run_number, mínimo 2);
+# - asset exacto: kujira-app-vX.Y.Z.apk.
+#
+# El primer release con updater (v1.6.0) se instala manualmente. Desde ahí,
+# la app puede descargar e instalar los siguientes releases.
+# Ver lib/updater/README.md para el flujo completo.
 name: Build Android App Locally and Release
 
 on:
@@ -11,6 +22,7 @@ on:
     tags:
       - "v*"
 
+# El build no publica nada; el job create-release pide contents: write.
 permissions:
   contents: read
 
@@ -51,6 +63,9 @@ jobs:
       - name: Type check
         run: bunx tsc --noEmit
 
+      # Prioridad de versión: input manual > tag vX.Y.Z > package.json.
+      # El versionCode no sale del semver: usa el run_number para que cada
+      # release tenga un código mayor que el anterior.
       - name: Resolve version
         id: meta
         shell: bash
@@ -85,6 +100,8 @@ jobs:
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "Publicando v$VERSION (versionCode $VERSION_CODE)"
 
+      # Sincroniza el manifiesto de Expo y package.json con la versión del
+      # release. El APK embebido es el que luego lee `Constants.expoConfig`.
       - name: Sync app version
         env:
           VERSION: ${{ steps.meta.outputs.version }}
@@ -150,6 +167,7 @@ jobs:
           fi
           echo "APK_PATH=$APK_PATH" >> "$GITHUB_OUTPUT"
 
+      # Este nombre es parte del contrato con lib/updater/github.ts.
       - name: Rename APK
         run: cp "${{ steps.find_apk.outputs.APK_PATH }}" "kujira-app-v${{ steps.meta.outputs.version }}.apk"
 
@@ -189,6 +207,8 @@ jobs:
             exit 1
           fi
 
+      # Estas tres verificaciones, junto con la firma, son las que garantizan
+      # que Android trate el APK como actualización y no como app aparte.
       - name: Verify APK package and version
         env:
           EXPECTED_PACKAGE: "com.anonymous.KujiraAPP"
@@ -230,6 +250,7 @@ jobs:
           path: kujira-app-v${{ steps.meta.outputs.version }}.apk
           if-no-files-found: error
 
+  # Sólo este job necesita escribir: crea el tag/release y sube el APK.
   create-release:
     needs: build
     runs-on: ubuntu-latest

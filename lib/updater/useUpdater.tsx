@@ -1,3 +1,20 @@
+/**
+ * Provider global del updater Android.
+ *
+ * Responsabilidades:
+ * - cargar y persistir preferencias y el último chequeo;
+ * - restaurar una actualización pendiente después de cerrar la app;
+ * - chequear GitHub como máximo una vez cada 24 h (o al forzar manualmente);
+ * - descargar automáticamente respetando la preferencia Wi-Fi;
+ * - abrir el instalador cuando la descarga termina y la app está en primer
+ *   plano;
+ * - limpiar APKs viejos de la caché.
+ *
+ * La lógica está en el provider, no en la pantalla de Config, para que el
+ * chequeo y la descarga sigan funcionando aunque el usuario esté en otra
+ * pestaña. `UpdateCard` sólo consume el contexto.
+ */
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Application from "expo-application";
 import Constants, { ExecutionEnvironment } from "expo-constants";
@@ -137,14 +154,20 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
   const [preferencesLoaded, setPreferencesLoaded] = React.useState(false);
   const [appState, setAppState] = React.useState(AppState.currentState);
 
+  // Los refs permiten que las callbacks y los efectos lean el valor más
+  // reciente sin recrear funciones ni depender de renders intermedios.
   const releaseRef = React.useRef<UpdateInfo | null>(null);
   const downloadedPathRef = React.useRef<string | null>(null);
   const preferencesRef = React.useRef<UpdaterPreferences>(DEFAULT_PREFERENCES);
   const lastCheckedAtRef = React.useRef<number | null>(null);
   const checkingRef = React.useRef(false);
   const downloadingRef = React.useRef(false);
+  // autoInstallRef: la descarga actual debe abrir el instalador al terminar.
+  // installLaunchedRef: tag cuyo instalador ya se abrió, para no reabrirlo en
+  // loop cuando el usuario cancela y vuelve a la app.
   const autoInstallRef = React.useRef(false);
   const installLaunchedRef = React.useRef<string | null>(null);
+  // Pendiente de auto-download restaurado desde AsyncStorage al iniciar.
   const pendingAutoDownloadRef = React.useRef(false);
 
   const updateRelease = React.useCallback((next: UpdateInfo | null) => {
@@ -152,7 +175,9 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
     setReleaseState(next);
   }, []);
 
-  // Cargar preferencias y último chequeo.
+  // Carga inicial: preferencias, último chequeo y release pendiente.
+  // Si el APK pendiente sigue en caché, se restaura como "ready" sin abrir el
+  // instalador automáticamente; si no, queda "available" para reintentar.
   React.useEffect(() => {
     let cancelled = false;
 
@@ -288,6 +313,12 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
     [persistPreference],
   );
 
+  /**
+   * Descarga una versión y deja la máquina en `ready` o `error`.
+   * Marca `autoInstallRef` para que el efecto de auto-instalación abra el
+   * instalador cuando la app esté en primer plano, tanto en descargas
+   * automáticas como manuales.
+   */
   const performDownload = React.useCallback(
     async (info: UpdateInfo) => {
       if (!IS_ANDROID || downloadingRef.current) return;
@@ -322,6 +353,11 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  /**
+   * Auto-download opcional. La descarga manual (`downloadUpdate`) no pasa por
+   * acá, por eso puede usar datos móviles aunque `wifiOnly` esté activo.
+   * Si no se puede consultar el tipo de red, se intenta descargar igual.
+   */
   const maybeAutoDownload = React.useCallback(
     async (info: UpdateInfo) => {
       if (!preferencesRef.current.autoDownload) return;
@@ -360,6 +396,16 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
     [performDownload],
   );
 
+  /**
+   * Consulta GitHub y actualiza la máquina de estados.
+   *
+   * - `force`: ignora la ventana de 24 h (botón "Buscar de nuevo").
+   * - `silent`: no muestra toasts de resultados normales (chequeo automático).
+   *
+   * Un chequeo exitoso siempre actualiza `lastCheck`, incluso si no hay
+   * versión nueva. El release detectado se persiste antes de intentar la
+   * descarga para poder reanudarlo en la próxima sesión.
+   */
   const checkForUpdates = React.useCallback(
     async ({ force = false, silent = false }: CheckOptions = {}) => {
       if (!IS_ANDROID || checkingRef.current) return;
@@ -454,6 +500,7 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
     [currentVersion, maybeAutoDownload, updateRelease],
   );
 
+  /** Botón manual: descarga sin importar el tipo de red. */
   const downloadUpdate = React.useCallback(async () => {
     const info = releaseRef.current;
     if (!info) {
@@ -463,6 +510,7 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
     await performDownload(info);
   }, [performDownload]);
 
+  /** Abre el instalador y traduce errores a mensajes/acciones de la UI. */
   const installUpdate = React.useCallback(async () => {
     const path = downloadedPathRef.current;
     if (!path) {
@@ -511,6 +559,9 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Auto-instalar cuando la descarga termina y la app está en primer plano.
+  // Se espera a `active` porque Android no debe abrir el instalador mientras la
+  // app está en background. `installLaunchedRef` evita reabrir el instalador
+  // después de que el usuario cancela y vuelve.
   React.useEffect(() => {
     if (!IS_ANDROID) return;
     if (phase !== "ready" || !autoInstallRef.current) return;
@@ -525,6 +576,8 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
   }, [appState, installUpdate, phase, release]);
 
   // Reanudar la descarga de una actualización pendiente de una sesión anterior.
+  // Sólo se hace una vez por restauración; si el usuario desactivó el
+  // auto-download, la tarjeta sigue ofreciendo la descarga manual.
   React.useEffect(() => {
     if (!preferencesLoaded || !IS_ANDROID) return;
     if (!pendingAutoDownloadRef.current) return;
@@ -540,7 +593,9 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
     preferencesLoaded,
   ]);
 
-  // Chequeo automático al iniciar y al volver a primer plano.
+  // Chequeo automático al iniciar y al volver a primer plano. Se salta si ya
+  // hay un release pendiente para no pisar una descarga en curso; el usuario
+  // puede forzar otro chequeo con "Buscar de nuevo".
   React.useEffect(() => {
     if (!preferencesLoaded || !IS_ANDROID) return;
     if (!preferences.autoCheck || appState !== "active") return;
@@ -599,6 +654,7 @@ export function UpdaterProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Acceso al estado y las acciones del updater. Requiere `UpdaterProvider`. */
 export function useUpdater(): UpdaterContextValue {
   const context = React.useContext(UpdaterContext);
   if (!context) {

@@ -292,7 +292,7 @@ export default function ConfigScreen() {
         </>
       )}
 
-      {/* Updates Section */}
+      {/* Updates Section: el estado vive en UpdaterProvider (global). */}
       <UpdateCard />
 
       {/* Info Section */}
