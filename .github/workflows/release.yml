@@ -2,10 +2,24 @@ name: Build Android App Locally and Release
 
 on:
   workflow_dispatch:
-    
+    inputs:
+      version:
+        description: "Versión a publicar (ej. 1.6.0). Si se omite, usa package.json."
+        required: false
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      version_code: ${{ steps.meta.outputs.version_code }}
     steps:
       - name: Free disk space (fix No space left on device)
         uses: jlumbroso/free-disk-space@main
@@ -32,7 +46,70 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bunx tsc --noEmit
+
+      - name: Resolve version
+        id: meta
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            VERSION="$INPUT_VERSION"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="$(node -p "require('./package.json').version")"
+          fi
+
+          VERSION="${VERSION#v}"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Versión inválida: '$VERSION'. Usá el formato X.Y.Z."
+            exit 1
+          fi
+
+          # versionCode tiene que ser siempre mayor al del APK instalado.
+          # github.run_number es monotónico por repositorio; el mínimo 2 evita
+          # que la primera ejecución quede igual al versionCode actual (1).
+          VERSION_CODE="$RUN_NUMBER"
+          if [ "$VERSION_CODE" -lt 2 ]; then
+            VERSION_CODE=2
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "Publicando v$VERSION (versionCode $VERSION_CODE)"
+
+      - name: Sync app version
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+
+          const version = process.env.VERSION;
+          const versionCode = Number(process.env.VERSION_CODE);
+
+          const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          app.expo.version = version;
+          app.expo.android = {
+            ...(app.expo.android ?? {}),
+            versionCode,
+          };
+          fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
+
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.version = version;
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+
+          console.log(`app.json/package.json sincronizados a v${version} (${versionCode})`);
+          NODE
 
       # El modulo nativo local en ./modules/video-proxy se auto-enlaza durante el
       # prebuild (expo-modules-autolinking lo detecta via package.json > expo.autolinking).
@@ -58,19 +135,100 @@ jobs:
 
       - name: Build Android Release APK
         run: |
+          set -euo pipefail
           cd android
           ./gradlew assembleRelease
-          cd ..
 
       - name: Find Android APK
         id: find_apk
-        run: echo "APK_PATH=$(find ./android/app/build/outputs/apk/release -name "*.apk" | head -n 1)" >> $GITHUB_OUTPUT
+        run: |
+          set -euo pipefail
+          APK_PATH="$(find ./android/app/build/outputs/apk/release -name '*.apk' -print -quit)"
+          if [ -z "$APK_PATH" ]; then
+            echo "No se encontró ningún APK de release."
+            exit 1
+          fi
+          echo "APK_PATH=$APK_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Rename APK
+        run: cp "${{ steps.find_apk.outputs.APK_PATH }}" "kujira-app-v${{ steps.meta.outputs.version }}.apk"
+
+      - name: Verify APK signature
+        env:
+          # Firma actual (Android Debug). Si cambia, Android rechaza la
+          # actualización por "firma incompatible". Si algún día se migra a una
+          # keystore de release, hay que actualizar este valor y avisar a los
+          # usuarios que reinstalen una vez.
+          EXPECTED_SHA256: "FA:C6:17:45:DC:09:03:78:6F:B9:ED:E6:2A:96:2B:39:9F:73:48:F0:BB:6F:89:9B:83:32:66:75:91:03:3B:9C"
+        run: |
+          set -euo pipefail
+
+          APK="kujira-app-v${{ steps.meta.outputs.version }}.apk"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          APKSIGNER="$(find "${SDK_ROOT}/build-tools" -name apksigner -type f 2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "No se encontró apksigner en ${SDK_ROOT}/build-tools"
+            exit 1
+          fi
+
+          if ! SIGNATURE_INFO="$("$APKSIGNER" verify --print-certs "$APK")"; then
+            echo "ERROR: apksigner no pudo verificar la firma del APK."
+            exit 1
+          fi
+          echo "$SIGNATURE_INFO"
+
+          # apksigner imprime el digest en minúsculas y sin ":"; normalizamos
+          # ambos lados para que el chequeo funcione en cualquier formato.
+          EXPECTED_NORMALIZED="$(echo "$EXPECTED_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_NORMALIZED="$(echo "$SIGNATURE_INFO" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+
+          if ! echo "$ACTUAL_NORMALIZED" | grep -q "$EXPECTED_NORMALIZED"; then
+            echo "ERROR: la firma del APK cambió."
+            echo "Los APK nuevos no se podrán instalar encima de los existentes."
+            echo "Esperado: $EXPECTED_SHA256"
+            exit 1
+          fi
+
+      - name: Verify APK package and version
+        env:
+          EXPECTED_PACKAGE: "com.anonymous.KujiraAPP"
+          EXPECTED_VERSION: ${{ steps.meta.outputs.version }}
+          EXPECTED_VERSION_CODE: ${{ steps.meta.outputs.version_code }}
+        run: |
+          set -euo pipefail
+
+          APK="kujira-app-v${{ steps.meta.outputs.version }}.apk"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          AAPT2="$(find "${SDK_ROOT}/build-tools" -name aapt2 -type f 2>/dev/null | sort -V | tail -n 1 || true)"
+          if [ -z "$AAPT2" ]; then
+            echo "No se encontró aapt2 en ${SDK_ROOT}/build-tools"
+            exit 1
+          fi
+
+          BADGING="$("$AAPT2" dump badging "$APK" | sed -n '1p')"
+          echo "$BADGING"
+
+          if ! echo "$BADGING" | grep -Fq "package: name='${EXPECTED_PACKAGE}'"; then
+            echo "ERROR: el package del APK no es ${EXPECTED_PACKAGE}."
+            echo "Cambiarlo haría que la actualización se instale como otra app."
+            exit 1
+          fi
+          if ! echo "$BADGING" | grep -Fq " versionCode='${EXPECTED_VERSION_CODE}'"; then
+            echo "ERROR: la versionCode del APK no es ${EXPECTED_VERSION_CODE}."
+            echo "Android necesita una versionCode mayor para aceptar la actualización."
+            exit 1
+          fi
+          if ! echo "$BADGING" | grep -Fq " versionName='${EXPECTED_VERSION}'"; then
+            echo "ERROR: la versionName del APK no es ${EXPECTED_VERSION}."
+            exit 1
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: ${{ steps.find_apk.outputs.APK_PATH }}
+          path: kujira-app-v${{ steps.meta.outputs.version }}.apk
+          if-no-files-found: error
 
   create-release:
     needs: build
@@ -84,22 +242,21 @@ jobs:
           name: android-apk
 
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_id }}
-          release_name: Build ${{ github.run_id }} (Android)
+          tag_name: v${{ needs.build.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: Kujira APP v${{ needs.build.outputs.version }}
+          body: |
+            ## Kujira APP v${{ needs.build.outputs.version }}
+
+            APK de Android generado automáticamente.
+
+            - `versionCode`: ${{ needs.build.outputs.version_code }}
+            - Instalación: descargá el APK y confirmá la instalación en Android.
+          files: kujira-app-v${{ needs.build.outputs.version }}.apk
           draft: false
           prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./app-release.apk
-          asset_name: app-android-unsigned.apk
-          asset_content_type: application/vnd.android.package-archive

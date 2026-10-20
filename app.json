@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kujira-APP",
     "slug": "Kujira-APP",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "kujira-app",
@@ -20,6 +20,8 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.anonymous.KujiraAPP",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#2F0C50"
@@ -33,7 +35,8 @@
     "plugins": [
       "expo-router",
       "expo-web-browser",
-      "react-native-video"
+      "react-native-video",
+      "./plugins/withInstallPermission"
     ],
     "experiments": {
       "typedRoutes": true

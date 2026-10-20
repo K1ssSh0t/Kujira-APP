@@ -7,6 +7,7 @@ import {
 } from "react-native";
 import { Text } from "~/components/ui/text";
 import { Button } from "~/components/ui/button";
+import { UpdateCard } from "~/components/UpdateCard";
 import { toast } from "sonner-native";
 import { useSyncStatus, useManualSync } from "~/lib/sync/hooks";
 import { clearSyncConfig } from "~/lib/sync/config";
@@ -290,6 +291,9 @@ export default function ConfigScreen() {
           </View>
         </>
       )}
+
+      {/* Updates Section */}
+      <UpdateCard />
 
       {/* Info Section */}
       <View className="bg-secondary/60 p-4 rounded-[20px] mb-4 border border-border/40">
